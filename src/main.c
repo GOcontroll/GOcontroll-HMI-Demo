@@ -16,6 +16,7 @@
 #include "config.h"
 #include "drm_display.h"
 #include "ipc.h"
+#include "settings.h"
 #include "ui.h"
 
 #define DRM_DEVICE         "/dev/dri/card1"
@@ -128,8 +129,11 @@ int main(int argc, char **argv)
     hmi_config_t cfg;
     hmi_config_load(&cfg, ASSET_DIR);
 
+    hmi_settings_t settings;
+    hmi_settings_load(&settings);
+
     /* --- UI construction ---------------------------------------------- */
-    ui_build(demo_pid, &cfg, ASSET_DIR);
+    ui_build(demo_pid, &cfg, ASSET_DIR, &settings);
 
     /* --- Main loop ---------------------------------------------------- */
     while (!g_stop && !ui_should_exit()) {

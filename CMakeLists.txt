@@ -49,6 +49,8 @@ add_executable(gocontroll-hmi-demo
     src/ipc.c
     src/config.c
     src/drm_display.c
+    src/settings.c
+    src/sysinfo.c
 )
 
 target_include_directories(gocontroll-hmi-demo PRIVATE

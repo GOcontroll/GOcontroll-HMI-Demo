@@ -112,8 +112,8 @@
 #define LV_USE_BUTTONMATRIX     0
 #define LV_USE_CALENDAR         0
 #define LV_USE_CANVAS           0
-#define LV_USE_CHART            0
-#define LV_USE_CHECKBOX         0
+#define LV_USE_CHART            1   /* rolling sensor graphs on Information screen */
+#define LV_USE_CHECKBOX         1   /* "show clock" toggle on Settings screen */
 #define LV_USE_DROPDOWN         0
 #define LV_USE_IMAGE            1
 #define LV_USE_KEYBOARD         0

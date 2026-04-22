@@ -3,23 +3,27 @@
 
 #include <sys/types.h>
 #include "config.h"
+#include "settings.h"
 
 /**
- * Construct the demo UI on the active LVGL display.
+ * Build the three-screen dashboard (main + information + settings) on the
+ * active LVGL display. Loads the main screen once construction is done.
  *
- * @param demo_pid PID of the gocontroll_demo Simulink process (for pyuio-like
- *                 IPC). If < 0, UI is built without live IPC and voltages show
- *                 as "-mV".
- * @param cfg      resolved addresses for k15, k30, DisplayBrightness.
- * @param asset_dir directory containing GOcontroll.png (e.g.
- *                 /usr/share/gocontroll-hmi-demo).
+ * @param demo_pid PID of the gocontroll_demo Simulink process for K15/K30 and
+ *                 brightness IPC. If < 0 the UI shows "-" for those values.
+ * @param cfg      resolved asap addresses.
+ * @param asset_dir directory containing GOcontroll.png /
+ *                 GOcontroll_header.png (/usr/share/gocontroll-hmi-demo).
+ * @param settings persisted preferences; mutated by the Settings screen and
+ *                 re-saved on change.
  */
-void ui_build(pid_t demo_pid, const hmi_config_t *cfg, const char *asset_dir);
+void ui_build(pid_t demo_pid, const hmi_config_t *cfg, const char *asset_dir,
+              hmi_settings_t *settings);
 
-/** Shut down the UI-owned timer and IPC state. */
+/** Shut down UI-owned timers. */
 void ui_shutdown(void);
 
-/** Returns 1 once the user has pressed "Exit demo". */
+/** Returns 1 once the user has pressed "Exit demo" on the Settings screen. */
 int ui_should_exit(void);
 
 #endif
