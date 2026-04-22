@@ -11,10 +11,10 @@
 #include <unistd.h>
 
 #include "lvgl.h"
-#include "src/drivers/display/drm/lv_linux_drm.h"
 #include "src/drivers/evdev/lv_evdev.h"
 
 #include "config.h"
+#include "drm_display.h"
 #include "ipc.h"
 #include "ui.h"
 
@@ -39,39 +39,17 @@ static uint32_t tick_get_ms_cb(void)
     return (uint32_t)(ts.tv_sec * 1000u + ts.tv_nsec / 1000000u);
 }
 
-/* lv_linux_drm hardcodes LV_DISPLAY_RENDER_MODE_DIRECT, which makes
- * lv_display_set_rotation() a no-op. We instead switch to FULL mode and
- * rotate the buffer 180° in-place right before each page-flip. FULL mode
- * re-renders the whole buffer every frame, so there's no cross-buffer sync
- * to worry about. 32bpp only — lv_conf.h pins LV_COLOR_DEPTH=32. */
-static void rotate180_flush_start_cb(lv_event_t *e)
+/* LVGL flush: bridge from the cached shadow buffer into the write-combined
+ * DRM scanout, rotating 180° in the copy. Doing it here — and not as an
+ * in-place post-render pass on the DRM buffer — avoids read-modify-write
+ * against WC memory, which is ~50x slower than write-only streaming. */
+static void flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
-    lv_display_t *disp = lv_event_get_current_target(e);
-    lv_draw_buf_t *buf = lv_display_get_buf_active(disp);
-    if (!buf) return;
-
-    uint8_t  *base   = buf->data;
-    int32_t   w      = (int32_t)buf->header.w;
-    int32_t   h      = (int32_t)buf->header.h;
-    uint32_t  stride = buf->header.stride;
-
-    for (int32_t y = 0; y < h / 2; y++) {
-        uint32_t *top = (uint32_t *)(base + (uint32_t)y * stride);
-        uint32_t *bot = (uint32_t *)(base + (uint32_t)(h - 1 - y) * stride);
-        for (int32_t x = 0; x < w; x++) {
-            uint32_t tmp = top[x];
-            top[x] = bot[w - 1 - x];
-            bot[w - 1 - x] = tmp;
-        }
-    }
-    if (h & 1) {
-        uint32_t *mid = (uint32_t *)(base + (uint32_t)(h / 2) * stride);
-        for (int32_t x = 0; x < w / 2; x++) {
-            uint32_t tmp = mid[x];
-            mid[x] = mid[w - 1 - x];
-            mid[w - 1 - x] = tmp;
-        }
-    }
+    (void)area;
+    drm_display_t *drm = lv_display_get_user_data(disp);
+    uint32_t src_stride = lv_display_get_horizontal_resolution(disp) * sizeof(uint32_t);
+    drm_display_present_rotated180(drm, px_map, src_stride);
+    lv_display_flush_ready(disp);
 }
 
 int main(int argc, char **argv)
@@ -87,18 +65,45 @@ int main(int argc, char **argv)
     lv_init();
     lv_tick_set_cb(tick_get_ms_cb);
 
-    /* --- Display (KMS/DRM, rotate 180°) ------------------------------- */
-    lv_display_t *disp = lv_linux_drm_create();
+    /* --- DRM display --------------------------------------------------- */
+    drm_display_t *drm = drm_display_open(DRM_DEVICE);
+    if (!drm) {
+        fprintf(stderr, "drm_display_open(%s) failed\n", DRM_DEVICE);
+        return 1;
+    }
+
+    uint32_t hres   = drm_display_width(drm);
+    uint32_t vres   = drm_display_height(drm);
+    uint32_t stride = hres * sizeof(uint32_t);
+    size_t   shadow_size = (size_t)stride * vres;
+
+    /* Cached shadow buffer for LVGL to render into. Cached reads (~1.7 GB/s)
+     * feed the present-time rotate+copy into the WC DRM buffer — one full
+     * screen pass takes ~2 ms at 1280x720. */
+    uint8_t *shadow = aligned_alloc(64, shadow_size);
+    if (!shadow) {
+        fprintf(stderr, "failed to allocate %zu byte shadow buffer\n", shadow_size);
+        drm_display_close(drm);
+        return 1;
+    }
+    memset(shadow, 0, shadow_size);
+
+    lv_display_t *disp = lv_display_create(hres, vres);
     if (!disp) {
-        fprintf(stderr, "lv_linux_drm_create() failed\n");
+        fprintf(stderr, "lv_display_create failed\n");
+        free(shadow);
+        drm_display_close(drm);
         return 1;
     }
-    if (lv_linux_drm_set_file(disp, DRM_DEVICE, -1) != LV_RESULT_OK) {
-        fprintf(stderr, "lv_linux_drm_set_file(%s) failed\n", DRM_DEVICE);
-        return 1;
-    }
-    lv_display_set_render_mode(disp, LV_DISPLAY_RENDER_MODE_FULL);
-    lv_display_add_event_cb(disp, rotate180_flush_start_cb, LV_EVENT_FLUSH_START, NULL);
+    lv_display_set_user_data(disp, drm);
+    lv_display_set_dpi(disp, drm_display_dpi(drm));
+    /* Single-buffered LVGL: the shadow is the only render target. Page-flip
+     * ping-pong happens inside the DRM wrapper, so LVGL never renders into a
+     * buffer that's currently being scanned out (which was causing flicker
+     * during slider drag under the old 2-buffer DIRECT setup). */
+    lv_display_set_buffers_with_stride(disp, shadow, NULL, shadow_size, stride,
+                                       LV_DISPLAY_RENDER_MODE_FULL);
+    lv_display_set_flush_cb(disp, flush_cb);
 
     /* --- Touch (cyttsp6_mt via evdev, rotated to match display) ------- */
     lv_indev_t *touch = lv_evdev_create(LV_INDEV_TYPE_POINTER, TOUCH_DEVICE);
@@ -108,7 +113,7 @@ int main(int argc, char **argv)
          * coordinates in the panel's native (upside-down) frame. Invert both
          * axes to get user-frame coords that match the rotated scanout.
          * Same transform as libinput's LIBINPUT_CALIBRATION_MATRIX "-1 0 1 0 -1 1". */
-        lv_evdev_set_calibration(touch, 1279, 719, 0, 0);
+        lv_evdev_set_calibration(touch, (int32_t)hres - 1, (int32_t)vres - 1, 0, 0);
     } else {
         fprintf(stderr, "warning: could not open touch device %s: %s\n",
                 TOUCH_DEVICE, strerror(errno));
@@ -135,5 +140,7 @@ int main(int argc, char **argv)
 
     ui_shutdown();
     lv_deinit();
+    drm_display_close(drm);
+    free(shadow);
     return 0;
 }
