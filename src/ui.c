@@ -105,12 +105,15 @@ void ui_build(pid_t demo_pid, const hmi_config_t *cfg, const char *asset_dir)
     lv_obj_set_style_pad_row(col, 20, 0);
     lv_obj_set_style_pad_hor(col, 200, 0);
 
-    /* Logo */
+    /* Logo — PNG is 2362x472 native; constrain the widget and let CONTAIN
+     * scale-to-fit while preserving aspect ratio. */
     lv_obj_t *img = lv_image_create(col);
     char logo_path[300];
     snprintf(logo_path, sizeof(logo_path), "A:%s/GOcontroll.png", asset_dir);
     lv_image_set_src(img, logo_path);
-    lv_image_set_inner_align(img, LV_IMAGE_ALIGN_CENTER);
+    lv_obj_set_width(img, lv_pct(100));
+    lv_obj_set_height(img, 180);
+    lv_image_set_inner_align(img, LV_IMAGE_ALIGN_CONTAIN);
 
     /* K30 / K15 row */
     lv_obj_t *row = lv_obj_create(col);
