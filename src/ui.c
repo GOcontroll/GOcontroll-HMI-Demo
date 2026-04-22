@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "ui.h"
+#include "identify.h"
 #include "ipc.h"
 #include "settings.h"
 #include "sysinfo.h"
@@ -10,6 +11,11 @@
 #include <time.h>
 
 #include "lvgl.h"
+
+/* Montserrat 14 regenerated locally to include U+00A9 (©) for the main-screen
+ * footer — the stock LVGL build only covers ASCII + U+00B0 + U+2022. The .c
+ * source lives in src/fonts/ so we don't patch the lvgl submodule. */
+LV_FONT_DECLARE(lv_font_montserrat_14_ext);
 
 /* --- Brand palette (sampled from assets/GOcontroll.png) ---------------- */
 #define BRAND_ORANGE   lv_color_hex(0xE94E24)
@@ -165,15 +171,15 @@ static void tick_cb(lv_timer_t *t)
     char ip[16]; sysinfo_ipv4(ip, sizeof(ip));
 
     if (ok_k15) lv_label_set_text_fmt(g.val_k15, "%.2f V", k15_mv / 1000.0f);
-    else        lv_label_set_text    (g.val_k15, "—");
+    else        lv_label_set_text    (g.val_k15, "-");
 
     if (ok_k30) lv_label_set_text_fmt(g.val_k30, "%.2f V", k30_mv / 1000.0f);
-    else        lv_label_set_text    (g.val_k30, "—");
+    else        lv_label_set_text    (g.val_k30, "-");
 
     if (temp_c > -100.0f) lv_label_set_text_fmt(g.val_temp, "%.1f °C", temp_c);
-    else                  lv_label_set_text    (g.val_temp, "—");
+    else                  lv_label_set_text    (g.val_temp, "-");
 
-    lv_label_set_text(g.val_ip, ip[0] ? ip : "—");
+    lv_label_set_text(g.val_ip, ip[0] ? ip : "-");
 
     /* Chart push. Values are mV and °C directly — cheap to plot. */
     if (ok_k15) lv_chart_set_next_value(g.chart_volts, g.ser_k15, (int32_t)k15_mv);
@@ -257,6 +263,58 @@ static void build_page_header(lv_obj_t *parent, const char *title)
     lv_obj_align(ttl, LV_ALIGN_CENTER, 0, 0);
 }
 
+/* --- Chart with y-axis scale ------------------------------------------
+ * LVGL 9 dropped the chart axis-tick API, so we build a tiny flex row:
+ *   [ y-scale column | chart ]
+ * with max/mid/min labels distributed SPACE_BETWEEN along the column so they
+ * line up with the chart's plot top/centre/bottom. Internal chart values stay
+ * in whatever unit the caller is already pushing (mV, raw °C, …) — the label
+ * strings are just text and can express a different unit if desired. */
+static lv_obj_t *make_chart_with_yscale(lv_obj_t *parent, int height,
+                                        int32_t y_min, int32_t y_max,
+                                        const char *lbl_min,
+                                        const char *lbl_mid,
+                                        const char *lbl_max)
+{
+    lv_obj_t *row = lv_obj_create(parent);
+    lv_obj_remove_style_all(row);
+    lv_obj_set_size(row, lv_pct(100), height);
+    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(row, 8, 0);
+    lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *scale = lv_obj_create(row);
+    lv_obj_remove_style_all(scale);
+    lv_obj_set_size(scale, 56, lv_pct(100));
+    lv_obj_set_flex_flow(scale, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(scale, LV_FLEX_ALIGN_SPACE_BETWEEN,
+                                 LV_FLEX_ALIGN_END,
+                                 LV_FLEX_ALIGN_END);
+    lv_obj_remove_flag(scale, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *l_max = lv_label_create(scale);
+    lv_label_set_text(l_max, lbl_max); style_sub(l_max);
+    lv_obj_t *l_mid = lv_label_create(scale);
+    lv_label_set_text(l_mid, lbl_mid); style_sub(l_mid);
+    lv_obj_t *l_min = lv_label_create(scale);
+    lv_label_set_text(l_min, lbl_min); style_sub(l_min);
+
+    lv_obj_t *chart = lv_chart_create(row);
+    lv_obj_set_flex_grow(chart, 1);
+    lv_obj_set_height(chart, lv_pct(100));
+    lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(chart, 0, 0);
+    lv_obj_set_style_pad_all(chart, 0, 0);
+    lv_obj_set_style_line_width(chart, 2, LV_PART_ITEMS);
+    lv_obj_set_style_size(chart, 0, 0, LV_PART_INDICATOR);
+    lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
+    lv_chart_set_point_count(chart, CHART_POINTS);
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, y_min, y_max);
+    lv_chart_set_update_mode(chart, LV_CHART_UPDATE_MODE_SHIFT);
+    lv_chart_set_div_line_count(chart, 1, 0);  /* one mid-line matching lbl_mid */
+    return chart;
+}
+
 /* --- Stat card (one of four on the Info screen) ----------------------- */
 static lv_obj_t *make_stat_card(lv_obj_t *parent, const char *label, int width)
 {
@@ -272,7 +330,7 @@ static lv_obj_t *make_stat_card(lv_obj_t *parent, const char *label, int width)
     style_sub(lbl);
 
     lv_obj_t *val = lv_label_create(card);
-    lv_label_set_text(val, "—");
+    lv_label_set_text(val, "-");
     lv_obj_set_style_text_font(val, &lv_font_montserrat_24, 0);
     lv_obj_set_style_text_color(val, BRAND_DARK, 0);
     return val; /* caller stores this to update the value later. */
@@ -324,29 +382,64 @@ static void build_main_screen(void)
               "Live sensor data,\nsystem status and graphs", go_info_cb);
     make_tile(row, "Settings",
               "Backlight, preferences\nand demo info", go_settings_cb);
+
+    /* Footer with the real © glyph — possible because we use the extended
+     * Montserrat-14 that includes U+00A9. */
+    lv_obj_t *footer = lv_label_create(g.scr_main);
+    lv_label_set_text(footer, "\xC2\xA9 GOcontroll Moduline HMI1");
+    lv_obj_set_style_text_font(footer, &lv_font_montserrat_14_ext, 0);
+    lv_obj_set_style_text_color(footer, BRAND_SUBTEXT, 0);
+    lv_obj_align(footer, LV_ALIGN_BOTTOM_MID, 0, -12);
 }
 
-static void build_info_screen(void)
+/* Info-screen "System" tab helpers ------------------------------------ */
+
+static void add_kv_row(lv_obj_t *parent, const char *key, const char *val)
 {
-    g.scr_info = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(g.scr_info, BRAND_BG, 0);
-    lv_obj_set_style_pad_all(g.scr_info, 0, 0);
-    lv_obj_remove_flag(g.scr_info, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *row = lv_obj_create(parent);
+    lv_obj_remove_style_all(row);
+    lv_obj_set_size(row, lv_pct(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(row, 16, 0);
+    lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
-    build_page_header(g.scr_info, "Information");
+    lv_obj_t *k = lv_label_create(row);
+    lv_label_set_text(k, key);
+    lv_obj_set_width(k, 120);
+    style_sub(k);
 
-    /* Body container */
-    lv_obj_t *body = lv_obj_create(g.scr_info);
-    lv_obj_remove_style_all(body);
-    lv_obj_set_size(body, lv_pct(100), 720 - 72);
-    lv_obj_align(body, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-    lv_obj_set_flex_flow(body, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_all(body, 20, 0);
-    lv_obj_set_style_pad_row(body, 16, 0);
-    lv_obj_remove_flag(body, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *v = lv_label_create(row);
+    lv_label_set_text(v, (val && val[0]) ? val : "-");
+    lv_obj_set_flex_grow(v, 1);
+    lv_obj_set_style_text_color(v, BRAND_DARK, 0);
+    lv_obj_set_style_text_font(v, &lv_font_montserrat_14, 0);
+    lv_label_set_long_mode(v, LV_LABEL_LONG_WRAP);
+}
+
+static lv_obj_t *make_info_panel(lv_obj_t *parent, const char *heading)
+{
+    lv_obj_t *card = lv_obj_create(parent);
+    style_panel(card);
+    lv_obj_set_size(card, lv_pct(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(card, 6, 0);
+    lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *h = lv_label_create(card);
+    lv_label_set_text(h, heading);
+    style_heading(h);
+    return card;
+}
+
+static void build_live_tab(lv_obj_t *tab)
+{
+    lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(tab, 12, 0);
+    lv_obj_set_style_pad_row(tab, 12, 0);
+    lv_obj_remove_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
 
     /* Stat row — 4 cards. */
-    lv_obj_t *stats = lv_obj_create(body);
+    lv_obj_t *stats = lv_obj_create(tab);
     lv_obj_remove_style_all(stats);
     lv_obj_set_size(stats, lv_pct(100), 96);
     lv_obj_set_flex_flow(stats, LV_FLEX_FLOW_ROW);
@@ -358,11 +451,10 @@ static void build_info_screen(void)
     g.val_k15  = make_stat_card(stats, "K15",             card_w);
     g.val_k30  = make_stat_card(stats, "K30",             card_w);
 
-    /* Two charts stacked. */
-    const int chart_h = (720 - 72 - 40 - 96 - 16 - 16) / 2;  /* fill remaining height */
+    /* Two charts stacked, splitting the remaining height equally. */
+    const int chart_h = (720 - 72 - 48 - 2*12 - 96 - 2*12) / 2;
 
-    /* K15/K30 chart */
-    lv_obj_t *card1 = lv_obj_create(body);
+    lv_obj_t *card1 = lv_obj_create(tab);
     style_panel(card1);
     lv_obj_set_size(card1, lv_pct(100), chart_h);
     lv_obj_set_flex_flow(card1, LV_FLEX_FLOW_COLUMN);
@@ -370,25 +462,17 @@ static void build_info_screen(void)
     lv_obj_remove_flag(card1, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *t1 = lv_label_create(card1);
-    lv_label_set_text(t1, "K15 / K30 (mV) — last 60 s");
+    lv_label_set_text(t1, "K15 / K30 (V)  " LV_SYMBOL_BULLET "  last 60 s");
     style_heading(t1);
 
-    g.chart_volts = lv_chart_create(card1);
-    lv_obj_set_size(g.chart_volts, lv_pct(100), chart_h - 56);
-    lv_obj_set_style_bg_opa(g.chart_volts, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(g.chart_volts, 0, 0);
-    lv_obj_set_style_line_width(g.chart_volts, 2, LV_PART_ITEMS);
-    lv_obj_set_style_size(g.chart_volts, 0, 0, LV_PART_INDICATOR);
-    lv_chart_set_type(g.chart_volts, LV_CHART_TYPE_LINE);
-    lv_chart_set_point_count(g.chart_volts, CHART_POINTS);
-    lv_chart_set_range(g.chart_volts, LV_CHART_AXIS_PRIMARY_Y, 0, 16000);
-    lv_chart_set_update_mode(g.chart_volts, LV_CHART_UPDATE_MODE_SHIFT);
-    lv_chart_set_div_line_count(g.chart_volts, 5, 0);
+    /* Internal values stay in mV for full resolution; the y-axis labels
+     * translate to volts so the displayed scale matches the stat cards. */
+    g.chart_volts = make_chart_with_yscale(card1, chart_h - 56, 0, 16000,
+                                           "0 V", "8 V", "16 V");
     g.ser_k15 = lv_chart_add_series(g.chart_volts, BRAND_ORANGE, LV_CHART_AXIS_PRIMARY_Y);
     g.ser_k30 = lv_chart_add_series(g.chart_volts, BRAND_DARK,   LV_CHART_AXIS_PRIMARY_Y);
 
-    /* CPU temperature chart */
-    lv_obj_t *card2 = lv_obj_create(body);
+    lv_obj_t *card2 = lv_obj_create(tab);
     style_panel(card2);
     lv_obj_set_size(card2, lv_pct(100), chart_h);
     lv_obj_set_flex_flow(card2, LV_FLEX_FLOW_COLUMN);
@@ -396,21 +480,91 @@ static void build_info_screen(void)
     lv_obj_remove_flag(card2, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *t2 = lv_label_create(card2);
-    lv_label_set_text(t2, "CPU temperature (°C) — last 60 s");
+    lv_label_set_text(t2, "CPU temperature (°C)  " LV_SYMBOL_BULLET "  last 60 s");
     style_heading(t2);
 
-    g.chart_temp = lv_chart_create(card2);
-    lv_obj_set_size(g.chart_temp, lv_pct(100), chart_h - 56);
-    lv_obj_set_style_bg_opa(g.chart_temp, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(g.chart_temp, 0, 0);
-    lv_obj_set_style_line_width(g.chart_temp, 2, LV_PART_ITEMS);
-    lv_obj_set_style_size(g.chart_temp, 0, 0, LV_PART_INDICATOR);
-    lv_chart_set_type(g.chart_temp, LV_CHART_TYPE_LINE);
-    lv_chart_set_point_count(g.chart_temp, CHART_POINTS);
-    lv_chart_set_range(g.chart_temp, LV_CHART_AXIS_PRIMARY_Y, 20, 80);
-    lv_chart_set_update_mode(g.chart_temp, LV_CHART_UPDATE_MODE_SHIFT);
-    lv_chart_set_div_line_count(g.chart_temp, 4, 0);
+    g.chart_temp = make_chart_with_yscale(card2, chart_h - 56, 20, 80,
+                                          "20 °C", "50 °C", "80 °C");
     g.ser_temp = lv_chart_add_series(g.chart_temp, BRAND_ORANGE, LV_CHART_AXIS_PRIMARY_Y);
+}
+
+static void build_system_tab(lv_obj_t *tab)
+{
+    identify_t id;
+    identify_collect(&id);
+
+    lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(tab, 12, 0);
+    lv_obj_set_style_pad_row(tab, 12, 0);
+    /* Keep the tab scrollable in case a controller has many modules. */
+
+    lv_obj_t *sw = make_info_panel(tab, "Software");
+    add_kv_row(sw, "OS",     id.os);
+    add_kv_row(sw, "Kernel", id.kernel);
+
+    lv_obj_t *hw = make_info_panel(tab, "Hardware");
+    add_kv_row(hw, "Model",  id.model);
+    add_kv_row(hw, "Board",  id.hardware);
+    add_kv_row(hw, "Serial", id.serial);
+
+    lv_obj_t *mods = make_info_panel(tab, "Modules");
+    if (id.module_count == 0) {
+        add_kv_row(mods, "Slots",
+                   "no module layout file, run `go-modules scan`");
+    } else {
+        int real = 0;
+        for (int i = 0; i < id.module_count; i++) {
+            char slot[16]; snprintf(slot, sizeof(slot), "Slot %d", i + 1);
+            if (strcmp(id.modules[i].type, "-") == 0) {
+                add_kv_row(mods, slot, "empty");
+            } else {
+                char v[192];
+                snprintf(v, sizeof(v), "%s  " LV_SYMBOL_BULLET "  HW %s  " LV_SYMBOL_BULLET "  SW %s",
+                         id.modules[i].type,
+                         id.modules[i].hw_version,
+                         id.modules[i].sw_version);
+                add_kv_row(mods, slot, v);
+                real++;
+            }
+        }
+        if (!real) {
+            lv_obj_t *hint = lv_label_create(mods);
+            lv_label_set_text(hint, "(no populated slots on this controller)");
+            style_sub(hint);
+        }
+    }
+}
+
+static void build_info_screen(void)
+{
+    g.scr_info = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(g.scr_info, BRAND_BG, 0);
+    lv_obj_set_style_pad_all(g.scr_info, 0, 0);
+    lv_obj_remove_flag(g.scr_info, LV_OBJ_FLAG_SCROLLABLE);
+
+    build_page_header(g.scr_info, "Information");
+
+    /* Tabview fills the body region. Brand-style the tab buttons so the
+     * selected tab matches the orange accent used everywhere else. */
+    lv_obj_t *tv = lv_tabview_create(g.scr_info);
+    lv_obj_set_size(tv, lv_pct(100), 720 - 72);
+    lv_obj_align(tv, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+    lv_tabview_set_tab_bar_size(tv, 48);
+    lv_obj_set_style_bg_color(tv, BRAND_BG, 0);
+
+    lv_obj_t *tab_bar = lv_tabview_get_tab_bar(tv);
+    lv_obj_set_style_bg_color(tab_bar, BRAND_PANEL, 0);
+    lv_obj_set_style_border_side(tab_bar, LV_BORDER_SIDE_BOTTOM, 0);
+    lv_obj_set_style_border_width(tab_bar, 1, 0);
+    lv_obj_set_style_border_color(tab_bar, BRAND_DIVIDER, 0);
+    lv_obj_set_style_text_color(tab_bar, BRAND_SUBTEXT, 0);
+    lv_obj_set_style_text_color(tab_bar, BRAND_ORANGE, LV_STATE_CHECKED);
+    lv_obj_set_style_text_font(tab_bar, &lv_font_montserrat_24, 0);
+
+    lv_obj_t *tab_live = lv_tabview_add_tab(tv, "Live");
+    lv_obj_t *tab_sys  = lv_tabview_add_tab(tv, "System");
+    build_live_tab(tab_live);
+    build_system_tab(tab_sys);
 }
 
 static void build_settings_screen(void)

@@ -51,6 +51,8 @@ add_executable(gocontroll-hmi-demo
     src/drm_display.c
     src/settings.c
     src/sysinfo.c
+    src/identify.c
+    src/fonts/lv_font_montserrat_14_ext.c
 )
 
 target_include_directories(gocontroll-hmi-demo PRIVATE

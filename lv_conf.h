@@ -130,7 +130,7 @@
 #define LV_USE_SPINNER          0
 #define LV_USE_SWITCH           0
 #define LV_USE_TABLE            0
-#define LV_USE_TABVIEW          0
+#define LV_USE_TABVIEW          1   /* Information screen: Live + System tabs */
 #define LV_USE_TEXTAREA         0
 #define LV_USE_TILEVIEW         0
 #define LV_USE_WIN              0
