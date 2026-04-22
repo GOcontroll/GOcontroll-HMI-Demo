@@ -52,6 +52,7 @@ add_executable(gocontroll-hmi-demo
     src/settings.c
     src/sysinfo.c
     src/identify.c
+    src/module_pins.c
     src/fonts/lv_font_montserrat_14_ext.c
 )
 

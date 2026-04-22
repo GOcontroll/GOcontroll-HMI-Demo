@@ -2,6 +2,7 @@
 #include "ui.h"
 #include "identify.h"
 #include "ipc.h"
+#include "module_pins.h"
 #include "settings.h"
 #include "sysinfo.h"
 
@@ -36,7 +37,12 @@ static struct {
     int              should_exit;
 
     /* Screens */
-    lv_obj_t *scr_main, *scr_info, *scr_settings;
+    lv_obj_t *scr_main, *scr_info, *scr_settings, *scr_config;
+
+    /* Configuration screen */
+    lv_obj_t *cfg_dropdown;
+    lv_obj_t *cfg_article;
+    lv_obj_t *cfg_table;
 
     /* Main screen */
     lv_obj_t    *lbl_clock;
@@ -113,6 +119,7 @@ static void style_sub(lv_obj_t *lbl)
 static void go_main_cb    (lv_event_t *e) { (void)e; lv_screen_load(g.scr_main); }
 static void go_info_cb    (lv_event_t *e) { (void)e; lv_screen_load(g.scr_info); }
 static void go_settings_cb(lv_event_t *e) { (void)e; lv_screen_load(g.scr_settings); }
+static void go_config_cb  (lv_event_t *e) { (void)e; lv_screen_load(g.scr_config); }
 
 static void exit_cb(lv_event_t *e) { (void)e; g.should_exit = 1; }
 
@@ -193,7 +200,7 @@ static lv_obj_t *make_tile(lv_obj_t *parent, const char *title, const char *sub,
                            lv_event_cb_t on_click)
 {
     lv_obj_t *btn = lv_button_create(parent);
-    lv_obj_set_size(btn, 420, 360);
+    lv_obj_set_size(btn, 380, 360);  /* 3 tiles * 380 + 2 * 32 gaps = 1204 */
     lv_obj_set_style_bg_color(btn, BRAND_PANEL, 0);
     lv_obj_set_style_bg_color(btn, BRAND_ORANGE_SOFT, LV_STATE_PRESSED);
     lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
@@ -375,11 +382,13 @@ static void build_main_screen(void)
     lv_obj_align(row, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_column(row, 40, 0);
+    lv_obj_set_style_pad_column(row, 32, 0);
     lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
     make_tile(row, "Information",
               "Live sensor data,\nsystem status and graphs", go_info_cb);
+    make_tile(row, "Configuration",
+              "Module pinning\nfor this controller", go_config_cb);
     make_tile(row, "Settings",
               "Backlight, preferences\nand demo info", go_settings_cb);
 
@@ -567,6 +576,153 @@ static void build_info_screen(void)
     build_system_tab(tab_sys);
 }
 
+/* --- Configuration screen -------------------------------------------- */
+
+/* Fill the pin table with the rows of the currently-selected module. The
+ * column layout (4 cols: Function | Description | MDS1 | MDS2) is built once
+ * in build_config_screen and reused here. */
+static void populate_pin_table(uint32_t def_idx)
+{
+    if (def_idx >= g_module_def_count) return;
+    const module_def_t *d = &g_module_defs[def_idx];
+
+    lv_label_set_text_fmt(g.cfg_article, "Article: %s", d->article_number);
+
+    lv_table_set_row_count(g.cfg_table, (uint16_t)(d->pin_count + 1));
+    lv_table_set_cell_value(g.cfg_table, 0, 0, "Function");
+    lv_table_set_cell_value(g.cfg_table, 0, 1, "Description");
+    lv_table_set_cell_value(g.cfg_table, 0, 2, "MDS1");
+    lv_table_set_cell_value(g.cfg_table, 0, 3, "MDS2");
+    for (size_t i = 0; i < d->pin_count; i++) {
+        lv_table_set_cell_value(g.cfg_table, (uint16_t)(i + 1), 0, d->pins[i].function);
+        lv_table_set_cell_value(g.cfg_table, (uint16_t)(i + 1), 1, d->pins[i].description);
+        lv_table_set_cell_value(g.cfg_table, (uint16_t)(i + 1), 2, d->pins[i].mds1);
+        lv_table_set_cell_value(g.cfg_table, (uint16_t)(i + 1), 3, d->pins[i].mds2);
+    }
+}
+
+static void cfg_dropdown_cb(lv_event_t *e)
+{
+    lv_obj_t *dd = (lv_obj_t *)lv_event_get_target(e);
+    populate_pin_table(lv_dropdown_get_selected(dd));
+}
+
+static void build_config_screen(void)
+{
+    g.scr_config = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(g.scr_config, BRAND_BG, 0);
+    lv_obj_set_style_pad_all(g.scr_config, 0, 0);
+    lv_obj_remove_flag(g.scr_config, LV_OBJ_FLAG_SCROLLABLE);
+
+    build_page_header(g.scr_config, "Configuration");
+
+    /* Body: top controls (dropdown + article) as a row, main area below as
+     * another row with the 3D image on the left and the pin table on the right. */
+    lv_obj_t *body = lv_obj_create(g.scr_config);
+    lv_obj_remove_style_all(body);
+    lv_obj_set_size(body, lv_pct(100), 720 - 72);
+    lv_obj_align(body, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+    lv_obj_set_flex_flow(body, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(body, 20, 0);
+    lv_obj_set_style_pad_row(body, 16, 0);
+    lv_obj_remove_flag(body, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Controls row — module dropdown + article-number readout. */
+    lv_obj_t *ctrls = lv_obj_create(body);
+    lv_obj_remove_style_all(ctrls);
+    lv_obj_set_size(ctrls, lv_pct(100), 56);
+    lv_obj_set_flex_flow(ctrls, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(ctrls, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(ctrls, 20, 0);
+    lv_obj_remove_flag(ctrls, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *lbl = lv_label_create(ctrls);
+    lv_label_set_text(lbl, "Module type");
+    style_heading(lbl);
+
+    g.cfg_dropdown = lv_dropdown_create(ctrls);
+    lv_obj_set_width(g.cfg_dropdown, 480);
+    lv_obj_set_height(g.cfg_dropdown, 52);
+    lv_obj_set_style_bg_color(g.cfg_dropdown, BRAND_PANEL, 0);
+    lv_obj_set_style_bg_opa(g.cfg_dropdown, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(g.cfg_dropdown, BRAND_DIVIDER, 0);
+    lv_obj_set_style_border_width(g.cfg_dropdown, 1, 0);
+    lv_obj_set_style_radius(g.cfg_dropdown, 8, 0);
+    lv_obj_set_style_text_color(g.cfg_dropdown, BRAND_DARK, 0);
+    lv_obj_set_style_text_font(g.cfg_dropdown, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_shadow_width(g.cfg_dropdown, 0, 0);
+    /* Build the "A\nB\nC" options string from the static module list. */
+    {
+        char opts[1024]; opts[0] = 0;
+        size_t used = 0;
+        for (size_t i = 0; i < g_module_def_count; i++) {
+            int n = snprintf(opts + used, sizeof(opts) - used, "%s%s",
+                             i ? "\n" : "", g_module_defs[i].name);
+            if (n <= 0 || (size_t)n >= sizeof(opts) - used) break;
+            used += (size_t)n;
+        }
+        lv_dropdown_set_options(g.cfg_dropdown, opts);
+    }
+    lv_obj_add_event_cb(g.cfg_dropdown, cfg_dropdown_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+    g.cfg_article = lv_label_create(ctrls);
+    lv_label_set_text(g.cfg_article, "Article: -");
+    style_sub(g.cfg_article);
+    lv_obj_set_style_text_font(g.cfg_article, &lv_font_montserrat_24, 0);
+
+    /* Main row: connector/3D image + pin table */
+    lv_obj_t *main = lv_obj_create(body);
+    lv_obj_remove_style_all(main);
+    lv_obj_set_size(main, lv_pct(100), 720 - 72 - 56 - 2*20 - 16);
+    lv_obj_set_flex_flow(main, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(main, 20, 0);
+    lv_obj_remove_flag(main, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *img_card = lv_obj_create(main);
+    style_panel(img_card);
+    lv_obj_set_size(img_card, 340, lv_pct(100));
+    lv_obj_set_flex_flow(img_card, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(img_card, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_row(img_card, 8, 0);
+    lv_obj_remove_flag(img_card, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *img = lv_image_create(img_card);
+    char p[256];
+    snprintf(p, sizeof(p), "A:%s/hmi1_3d.png", g.asset_dir);
+    lv_image_set_src(img, p);
+
+    lv_obj_t *caption = lv_label_create(img_card);
+    lv_label_set_text(caption, "Moduline HMI1\nslots MDS1 & MDS2");
+    style_sub(caption);
+    lv_obj_set_style_text_align(caption, LV_TEXT_ALIGN_CENTER, 0);
+
+    /* Pin table, fills remaining width. Table rows scroll if more than fit. */
+    g.cfg_table = lv_table_create(main);
+    lv_obj_set_flex_grow(g.cfg_table, 1);
+    lv_obj_set_height(g.cfg_table, lv_pct(100));
+    lv_obj_set_style_bg_color(g.cfg_table, BRAND_PANEL, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(g.cfg_table, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_color(g.cfg_table, BRAND_DIVIDER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g.cfg_table, 1, LV_PART_MAIN);
+    lv_obj_set_style_radius(g.cfg_table, 12, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g.cfg_table, 0, LV_PART_MAIN);
+    lv_obj_set_style_text_font(g.cfg_table, &lv_font_montserrat_14, LV_PART_ITEMS);
+    lv_obj_set_style_text_color(g.cfg_table, BRAND_DARK, LV_PART_ITEMS);
+    lv_obj_set_style_pad_hor(g.cfg_table, 10, LV_PART_ITEMS);
+    lv_obj_set_style_pad_ver(g.cfg_table, 8,  LV_PART_ITEMS);
+    lv_obj_set_style_border_color(g.cfg_table, BRAND_DIVIDER, LV_PART_ITEMS);
+    lv_obj_set_style_border_width(g.cfg_table, 1, LV_PART_ITEMS);
+    lv_obj_set_style_border_side(g.cfg_table, LV_BORDER_SIDE_BOTTOM, LV_PART_ITEMS);
+    lv_table_set_column_count(g.cfg_table, 4);
+    lv_table_set_column_width(g.cfg_table, 0, 150);  /* Function */
+    lv_table_set_column_width(g.cfg_table, 1, 340);  /* Description */
+    lv_table_set_column_width(g.cfg_table, 2, 80);   /* MDS1 */
+    lv_table_set_column_width(g.cfg_table, 3, 80);   /* MDS2 */
+
+    /* Populate with the first module to start. */
+    populate_pin_table(0);
+}
+
 static void build_settings_screen(void)
 {
     g.scr_settings = lv_obj_create(NULL);
@@ -676,6 +832,7 @@ void ui_build(pid_t demo_pid, const hmi_config_t *cfg, const char *asset_dir,
 
     build_main_screen();
     build_info_screen();
+    build_config_screen();
     build_settings_screen();
 
     lv_screen_load(g.scr_main);
