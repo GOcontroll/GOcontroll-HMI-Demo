@@ -1,0 +1,34 @@
+Source: gocontroll-hmi-demo
+Section: Misc
+Priority: optional
+Maintainer: GOcontroll <info@gocontroll.com>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ cmake,
+ pkg-config,
+ libdrm-dev,
+ libgbm-dev,
+ libegl-dev,
+ libgles-dev,
+ libcjson-dev,
+ libpng-dev,
+ libfreetype-dev,
+Standards-Version: 4.7.2
+Homepage: https://gocontroll.com
+Vcs-Browser: https://github.com/GOcontroll/GOcontroll-HMI-Demo
+Vcs-Git: https://github.com/GOcontroll/GOcontroll-HMI-Demo.git
+
+Package: gocontroll-hmi-demo
+Architecture: any
+Conflicts: go-gtk-demo
+Replaces: go-gtk-demo
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: A minimal HMI demo for the Moduline Display (LVGL on KMS)
+ Shows a GOcontroll-branded dashboard with live K15/K30 voltages from an
+ accompanying Simulink binary, a display-brightness slider, and an exit
+ button. Renders with LVGL directly on /dev/dri/card1 (no Wayland or X11
+ compositor). Functionally equivalent to go-gtk-demo but trades the GTK/Cage
+ stack for a lighter, MIT-licensed embedded toolkit.

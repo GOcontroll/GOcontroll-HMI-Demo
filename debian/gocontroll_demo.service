@@ -1,0 +1,13 @@
+### Simulink service ###
+
+[Unit]
+Description=Simulink service (gocontroll_demo)
+DefaultDependencies=no
+
+[Service]
+CPUAffinity=3
+ExecStart=/usr/bin/gocontroll_demo
+Type=simple
+
+[Install]
+WantedBy=sysinit.target

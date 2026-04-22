@@ -1,0 +1,28 @@
+[Unit]
+Description=GOcontroll LVGL HMI demo (direct KMS, no compositor)
+# Start after the Simulink backend so IPC target exists, and after getty@tty1
+# has set up the VT.
+After=gocontroll_demo.service systemd-user-sessions.service
+Wants=gocontroll_demo.service
+# Replace getty@tty1 so we own the VT and can grab DRM master.
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+PartOf=graphical.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/gocontroll-hmi-demo
+# Attach to tty1 so the kernel VT handover works cleanly for DRM master.
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty-fail
+StandardOutput=journal
+StandardError=journal
+# The Simulink IPC uses process_vm_readv/writev; needs CAP_SYS_PTRACE unless we
+# disable dumpable. Simpler: run as root (matches go-gtk-demo's posture).
+User=root
+
+[Install]
+WantedBy=graphical.target

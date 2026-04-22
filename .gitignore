@@ -1,0 +1,27 @@
+build/
+*.o
+*.a
+*.so
+
+# Generated from Simulink a2l per build (cf. parse_a2l.py)
+signals.json
+parameters.json
+*.a2l
+
+# debhelper build artifacts
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/gocontroll-hmi-demo/
+debian/gocontroll-hmi-demo-dbgsym/
+debian/*.substvars
+debian/*.debhelper
+debian/*.debhelper.log
+
+# dpkg-buildpackage intermediate build tree
+obj-*-linux-gnu/
+
+# debian package outputs
+*.deb
+*.buildinfo
+*.changes

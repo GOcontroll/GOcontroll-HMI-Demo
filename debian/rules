@@ -1,0 +1,32 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@ --buildsystem=cmake
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+	    -DCMAKE_BUILD_TYPE=Release \
+	    -DCONFIG_LV_BUILD_EXAMPLES=OFF \
+	    -DCONFIG_LV_BUILD_DEMOS=OFF \
+	    -DCONFIG_LV_USE_THORVG_INTERNAL=OFF
+
+override_dh_auto_install:
+	dh_auto_install
+	# LVGL's CMake installs its headers and static lib too; strip them — this
+	# is a binary demo, not an LVGL SDK.
+	rm -rf debian/gocontroll-hmi-demo/usr/include
+	rm -rf debian/gocontroll-hmi-demo/usr/lib
+	rm -rf debian/gocontroll-hmi-demo/usr/share/pkgconfig
+	# ship the Simulink backend, assets, systemd units alongside the binary
+	install -Dm755 gocontroll_demo                debian/gocontroll-hmi-demo/usr/bin/gocontroll_demo
+	install -Dm644 assets/GOcontroll.png          debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/GOcontroll.png
+	install -Dm644 signals.json                   debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/signals.json
+	install -Dm644 parameters.json                debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/parameters.json
+	install -Dm644 debian/gocontroll-hmi-demo.service    debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-demo.service
+	install -Dm644 debian/gocontroll_demo.service        debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll_demo.service
+
+override_dh_installsystemd:
+	dh_installsystemd --name=gocontroll-hmi-demo gocontroll-hmi-demo.service
+	dh_installsystemd --name=gocontroll_demo     gocontroll_demo.service
