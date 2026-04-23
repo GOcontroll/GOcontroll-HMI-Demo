@@ -1,0 +1,22 @@
+[Unit]
+Description=GOcontroll boot splash (DRM, pre-HMI)
+DefaultDependencies=no
+# Needs /dev/dri/card1 populated by udev and /usr mounted for the asset.
+After=systemd-tmpfiles-setup.service systemd-udevd.service local-fs.target
+Before=basic.target
+Conflicts=shutdown.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/gocontroll-hmi-splash
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+# Don't respawn — the main HMI deliberately kicks us via Conflicts=.
+Restart=no
+# systemd sends SIGTERM on stop; sigwait in the binary handles it in ms.
+TimeoutStopSec=5s
+User=root
+
+[Install]
+WantedBy=sysinit.target

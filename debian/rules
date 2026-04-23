@@ -26,11 +26,15 @@ override_dh_auto_install:
 	install -Dm644 assets/hmi1_3d.png             debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/hmi1_3d.png
 	install -Dm644 assets/hmi1_connectors.png     debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/hmi1_connectors.png
 	install -Dm644 assets/hmi1_back.png           debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/hmi1_back.png
+	install -Dm644 splash/assets/GOcontroll_splash.png \
+	    debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/GOcontroll_splash.png
 	install -Dm644 signals.json                   debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/signals.json
 	install -Dm644 parameters.json                debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/parameters.json
 	install -Dm644 debian/gocontroll-hmi-demo.service    debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-demo.service
 	install -Dm644 debian/gocontroll_demo.service        debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll_demo.service
+	install -Dm644 debian/gocontroll-hmi-splash.service  debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-splash.service
 
 override_dh_installsystemd:
-	dh_installsystemd --name=gocontroll-hmi-demo gocontroll-hmi-demo.service
-	dh_installsystemd --name=gocontroll_demo     gocontroll_demo.service
+	dh_installsystemd --name=gocontroll-hmi-demo   gocontroll-hmi-demo.service
+	dh_installsystemd --name=gocontroll_demo       gocontroll_demo.service
+	dh_installsystemd --name=gocontroll-hmi-splash gocontroll-hmi-splash.service

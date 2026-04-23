@@ -7,6 +7,9 @@ Wants=gocontroll_demo.service
 # Replace getty@tty1 so we own the VT and can grab DRM master.
 Conflicts=getty@tty1.service
 After=getty@tty1.service
+# Stop the pre-boot splash right before we grab DRM master ourselves.
+Conflicts=gocontroll-hmi-splash.service
+After=gocontroll-hmi-splash.service
 PartOf=graphical.target
 
 [Service]

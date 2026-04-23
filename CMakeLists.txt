@@ -79,3 +79,6 @@ target_link_libraries(gocontroll-hmi-demo PRIVATE
 target_link_options(gocontroll-hmi-demo PRIVATE -Wl,--gc-sections)
 
 install(TARGETS gocontroll-hmi-demo RUNTIME DESTINATION bin)
+
+# Standalone early-boot splash binary (no LVGL dependency).
+add_subdirectory(splash)

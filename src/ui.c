@@ -949,6 +949,50 @@ static void build_settings_screen(void)
     build_settings_controls(right);
 }
 
+/* --- Splash fade-in --------------------------------------------------
+ *
+ * The boot-time gocontroll-hmi-splash service holds a black-framed logo on
+ * the display until we take DRM master. To avoid a hard cut from that
+ * final black frame to the live dashboard, drop a black overlay on top of
+ * the main screen and fade its opacity from 255 to 0 — the dashboard is
+ * revealed through the fade rather than snapping into view. */
+
+static void set_opa_anim_cb(void *obj, int32_t v)
+{
+    lv_obj_set_style_opa((lv_obj_t *)obj, (lv_opa_t)v, 0);
+}
+
+static void remove_overlay_anim_cb(lv_anim_t *a)
+{
+    lv_obj_delete((lv_obj_t *)a->var);
+}
+
+static void start_fade_in_from_black(void)
+{
+    lv_obj_t *overlay = lv_obj_create(g.scr_main);
+    lv_obj_remove_style_all(overlay);
+    lv_obj_set_size(overlay, lv_pct(100), lv_pct(100));
+    lv_obj_align(overlay, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_set_style_bg_color(overlay, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(overlay, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(overlay, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(overlay, LV_OBJ_FLAG_SCROLLABLE);
+    /* Cover any touches during the fade so a tap on the about-to-appear
+     * dashboard doesn't fire through half-way into the transition. */
+    lv_obj_add_flag(overlay, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_move_foreground(overlay);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, overlay);
+    lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
+    lv_anim_set_duration(&a, 450);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_exec_cb(&a, set_opa_anim_cb);
+    lv_anim_set_completed_cb(&a, remove_overlay_anim_cb);
+    lv_anim_start(&a);
+}
+
 /* --- Public entry points -------------------------------------------- */
 void ui_build(pid_t demo_pid, const hmi_config_t *cfg, const char *asset_dir,
               hmi_settings_t *settings)
@@ -969,6 +1013,7 @@ void ui_build(pid_t demo_pid, const hmi_config_t *cfg, const char *asset_dir,
     build_settings_screen();
 
     lv_screen_load(g.scr_main);
+    start_fade_in_from_black();
 
     g.tick_timer = lv_timer_create(tick_cb, TICK_PERIOD_MS, NULL);
     lv_timer_ready(g.tick_timer);
