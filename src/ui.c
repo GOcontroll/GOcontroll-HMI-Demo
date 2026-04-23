@@ -30,8 +30,11 @@ LV_FONT_DECLARE(lv_font_montserrat_14_ext);
 #define BRAND_DIVIDER       lv_color_hex(0xD9D9D9)
 #define BRAND_ORANGE_SOFT   lv_color_hex(0xFBE2D9)
 
+#define TICK_PERIOD_MS  200  /* 5 Hz — responsive slider + live readouts */
+#define CHART_HZ        1    /* chart still advances at 1 Hz */
 #define CHART_POINTS    60   /* 60 s rolling window at 1 Hz */
 #define GAUGE_RANGE_MV  16000 /* 0 - 16 V in mV for arc value */
+#define BACKLIGHT_SYSFS "/sys/class/backlight/max25014/brightness"
 
 static struct {
     pid_t            demo_pid;
@@ -140,14 +143,26 @@ static void apply_clock_visibility(void)
 }
 
 /* --- Settings callbacks ---------------------------------------------- */
-static void slider_changed_cb(lv_event_t *e)
+static void write_backlight(int32_t v)
 {
-    lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
-    int32_t v = lv_slider_get_value(slider);
-    if (g.demo_pid >= 0 && v >= 0 && v <= 255) {
+    if (v < 10)  v = 10;
+    if (v > 100) v = 100;
+    /* Direct sysfs write so the screen reacts on every drag event; the
+     * previous IPC-to-Simulink path added a full Simulink tick of latency. */
+    FILE *f = fopen(BACKLIGHT_SYSFS, "w");
+    if (f) { fprintf(f, "%d\n", (int)v); fclose(f); }
+    /* Also keep Simulink's DisplayBrightness parameter in sync so its
+     * internal model sees the current level. */
+    if (g.demo_pid >= 0) {
         uint8_t byte = (uint8_t)v;
         ipc_write(g.demo_pid, g.cfg.display_brightness.address, &byte, 1);
     }
+}
+
+static void slider_changed_cb(lv_event_t *e)
+{
+    lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
+    write_backlight(lv_slider_get_value(slider));
 }
 
 static void clock_toggle_cb(lv_event_t *e)
@@ -158,8 +173,8 @@ static void clock_toggle_cb(lv_event_t *e)
     hmi_settings_save(g.settings);
 }
 
-/* --- Tick (1 Hz): clock + per-screen refresh ------------------------ */
-static void refresh_live_screen(void)
+/* --- Tick (5 Hz): clock + per-screen refresh ------------------------ */
+static void refresh_live_screen(int push_chart)
 {
     uint16_t k15_mv = 0, k30_mv = 0;
     int ok_k15 = read_u16(&g.cfg.k15, &k15_mv) == 0;
@@ -183,7 +198,10 @@ static void refresh_live_screen(void)
     }
 
     if (temp_c > -100.0f) {
-        lv_chart_set_next_value(g.chart_temp, g.ser_temp, (int32_t)(temp_c + 0.5f));
+        /* Push to chart at 1 Hz only — otherwise the 60-point window
+         * (60 s at 1 Hz) shrinks to ~12 s at the fast tick rate. */
+        if (push_chart)
+            lv_chart_set_next_value(g.chart_temp, g.ser_temp, (int32_t)(temp_c + 0.5f));
         lv_label_set_text_fmt(g.lbl_cpu_temp, "%.1f \xC2\xB0""C", temp_c);
     } else {
         lv_label_set_text(g.lbl_cpu_temp, "-");
@@ -238,7 +256,13 @@ static void tick_cb(lv_timer_t *t)
 {
     (void)t;
 
-    if (g.lbl_clock) {
+    /* Count ticks to throttle things that only need to run once a second —
+     * clock label and chart push. (TICK_PERIOD_MS * SLOW_EVERY == 1000.) */
+    static int tick_count = 0;
+    const int SLOW_EVERY  = 1000 / TICK_PERIOD_MS;  /* 5 fast ticks per slow */
+    int do_slow = (tick_count++ % SLOW_EVERY) == 0;
+
+    if (do_slow && g.lbl_clock) {
         time_t now = time(NULL);
         struct tm tm_local;
         localtime_r(&now, &tm_local);
@@ -248,8 +272,8 @@ static void tick_cb(lv_timer_t *t)
     }
 
     lv_obj_t *active = lv_screen_active();
-    if      (active == g.scr_live) refresh_live_screen();
-    else if (active == g.scr_info) refresh_info_screen();
+    if      (active == g.scr_live) refresh_live_screen(do_slow);
+    else if (active == g.scr_info && do_slow) refresh_info_screen();
 }
 
 /* --- Main-screen tile builder ---------------------------------------- */
@@ -946,7 +970,7 @@ void ui_build(pid_t demo_pid, const hmi_config_t *cfg, const char *asset_dir,
 
     lv_screen_load(g.scr_main);
 
-    g.tick_timer = lv_timer_create(tick_cb, 1000, NULL);
+    g.tick_timer = lv_timer_create(tick_cb, TICK_PERIOD_MS, NULL);
     lv_timer_ready(g.tick_timer);
 }
 
