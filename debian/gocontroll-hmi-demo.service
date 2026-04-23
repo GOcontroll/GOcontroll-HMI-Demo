@@ -7,13 +7,14 @@ Wants=gocontroll_demo.service
 # Replace getty@tty1 so we own the VT and can grab DRM master.
 Conflicts=getty@tty1.service
 After=getty@tty1.service
-# Stop the pre-boot splash right before we grab DRM master ourselves.
-Conflicts=gocontroll-hmi-splash.service
-After=gocontroll-hmi-splash.service
 PartOf=graphical.target
 
 [Service]
 Type=simple
+# Synchronously stop the splash before grabbing DRM master. A unit-level
+# Conflicts= is unreliable at boot: both units are in the same transaction
+# and systemd drops the stop-job, leaving the splash holding DRM master.
+ExecStartPre=-/bin/systemctl stop gocontroll-hmi-splash.service
 ExecStart=/usr/bin/gocontroll-hmi-demo
 # Attach to tty1 so the kernel VT handover works cleanly for DRM master.
 TTYPath=/dev/tty1
