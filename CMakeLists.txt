@@ -48,8 +48,11 @@ add_executable(gocontroll-hmi-demo
     src/ui.c
     src/ipc.c
     src/config.c
+    src/controller_pins.c
     src/drm_display.c
+    src/product_info.c
     src/settings.c
+    src/shm_data.c
     src/sysinfo.c
     src/identify.c
     src/module_pins.c

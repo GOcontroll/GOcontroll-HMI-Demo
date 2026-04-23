@@ -25,6 +25,7 @@ override_dh_auto_install:
 	install -Dm644 assets/GOcontroll_header.png   debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/GOcontroll_header.png
 	install -Dm644 assets/hmi1_3d.png             debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/hmi1_3d.png
 	install -Dm644 assets/hmi1_connectors.png     debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/hmi1_connectors.png
+	install -Dm644 assets/hmi1_back.png           debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/hmi1_back.png
 	install -Dm644 signals.json                   debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/signals.json
 	install -Dm644 parameters.json                debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/parameters.json
 	install -Dm644 debian/gocontroll-hmi-demo.service    debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-demo.service

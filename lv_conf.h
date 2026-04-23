@@ -106,8 +106,8 @@
    WIDGETS
  *================*/
 #define LV_USE_ANIMIMG          0
-#define LV_USE_ARC              0
-#define LV_USE_BAR              1   /* slider depends on it */
+#define LV_USE_ARC              1   /* Live Data K15/K30 gauge widgets */
+#define LV_USE_BAR              1   /* slider depends on it; plus Pressure/SOC */
 #define LV_USE_BUTTON           1
 #define LV_USE_BUTTONMATRIX     0
 #define LV_USE_CALENDAR         0

@@ -12,6 +12,42 @@
 #include <string.h>
 #include <sys/socket.h>
 
+/* Pick the same interface sysinfo_ipv4 would return: first non-loopback,
+ * IFF_UP, with an IPv4 assigned. Fallback to the first non-loopback/IFF_UP
+ * interface if nothing has IPv4 yet, so the Information screen still shows
+ * the MAC of a cable that has been plugged in but hasn't DHCP'd. Caller
+ * owns iface_out[IFNAMSIZ]. */
+static int pick_primary_iface(char *iface_out, size_t iface_sz)
+{
+    if (iface_sz == 0) return -1;
+    iface_out[0] = 0;
+
+    struct ifaddrs *head = NULL;
+    if (getifaddrs(&head) != 0) return -1;
+
+    char fallback[IFNAMSIZ] = {0};
+    for (struct ifaddrs *it = head; it; it = it->ifa_next) {
+        if (!it->ifa_addr || !it->ifa_name) continue;
+        if (it->ifa_flags & IFF_LOOPBACK) continue;
+        if (!(it->ifa_flags & IFF_UP)) continue;
+
+        if (it->ifa_addr->sa_family == AF_INET) {
+            snprintf(iface_out, iface_sz, "%s", it->ifa_name);
+            freeifaddrs(head);
+            return 0;
+        }
+        if (!fallback[0])
+            snprintf(fallback, sizeof(fallback), "%s", it->ifa_name);
+    }
+    freeifaddrs(head);
+
+    if (fallback[0]) {
+        snprintf(iface_out, iface_sz, "%s", fallback);
+        return 0;
+    }
+    return -1;
+}
+
 void sysinfo_ipv4(char *out, size_t out_sz)
 {
     if (out_sz == 0) return;
@@ -30,6 +66,26 @@ void sysinfo_ipv4(char *out, size_t out_sz)
         break;
     }
     freeifaddrs(head);
+}
+
+void sysinfo_mac(char *out, size_t out_sz)
+{
+    if (out_sz == 0) return;
+    out[0] = 0;
+    if (out_sz < 18) return;
+
+    char iface[IFNAMSIZ];
+    if (pick_primary_iface(iface, sizeof(iface)) != 0) return;
+
+    char path[64];
+    snprintf(path, sizeof(path), "/sys/class/net/%s/address", iface);
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+    if (fgets(out, (int)out_sz, f)) {
+        size_t n = strlen(out);
+        while (n && (out[n-1] == '\n' || out[n-1] == '\r')) out[--n] = 0;
+    }
+    fclose(f);
 }
 
 static const char *cpu_thermal_path(void)
