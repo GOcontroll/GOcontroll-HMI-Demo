@@ -1,6 +1,6 @@
 /**
  * @file lv_conf.h
- * LVGL v9 configuration for GOcontroll Moduline Display (i.MX 8M Plus)
+ * LVGL v9 configuration for GOcontroll Moduline HMI1 (i.MX 8M Plus)
  *
  * Tuned for:
  *   - ARM Cortex-A53 (NEON SIMD)

@@ -26,9 +26,9 @@ Replaces: go-gtk-demo
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
-Description: A minimal HMI demo for the Moduline Display (LVGL on KMS)
+Description: A minimal HMI demo for the Moduline HMI1 (LVGL on KMS)
  Shows a GOcontroll-branded dashboard with live K15/K30 voltages from an
- accompanying Simulink binary, a display-brightness slider, and an exit
- button. Renders with LVGL directly on /dev/dri/card1 (no Wayland or X11
- compositor). Functionally equivalent to go-gtk-demo but trades the GTK/Cage
- stack for a lighter, MIT-licensed embedded toolkit.
+ accompanying Simulink binary, product and hardware information, process
+ values, a display-brightness slider and an exit button. Renders with LVGL
+ directly on /dev/dri/card1 (no Wayland or X11 compositor), using a
+ lightweight, MIT-licensed embedded toolkit.

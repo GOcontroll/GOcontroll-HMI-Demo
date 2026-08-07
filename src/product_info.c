@@ -1,5 +1,5 @@
 /* Product-info snapshot for the Information screen. Manually curated from
- * https://gocontroll.com/gocontroll-moduline-display-i/ — update alongside
+ * https://gocontroll.com/gocontroll-moduline-hmi1/ — update alongside
  * any product-page revision. */
 #include "product_info.h"
 

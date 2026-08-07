@@ -4,8 +4,8 @@
 #include <stddef.h>
 
 /* Static snapshot of the general product information for the Moduline
- * Display I (HMI1), sourced from
- *   https://gocontroll.com/gocontroll-moduline-display-i/
+ * HMI1, sourced from
+ *   https://gocontroll.com/gocontroll-moduline-hmi1/
  * at package build time. Kept intentionally terse so it fits on the right
  * half of the Information screen. Connector / pin details are explicitly
  * excluded — those live in controller_pins.c and module_pins.c. */

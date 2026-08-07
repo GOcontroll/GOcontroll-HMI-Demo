@@ -135,6 +135,13 @@ void identify_collect(identify_t *out)
     struct utsname u;
     if (uname(&u) == 0) snprintf(out->kernel, sizeof(out->kernel), "%s", u.release);
 
+    /* Captured verbatim. The device tree still carries the pre-rename product
+     * name: on an HMI1, model reads "GOcontroll Moduline Display with BOE
+     * av101hdt-a10 display" and hardware reads "Moduline Display V1.xx". Do
+     * not rewrite it here — this is the board's own identity as reported by
+     * the kernel, and it is the same string /usr/bin/gocontroll_demo matches
+     * on to detect the board. The Information screen swaps the product name
+     * for display only; see product_name_for_display() in ui.c. */
     read_dt_string("/sys/firmware/devicetree/base/model",    out->model,    sizeof(out->model));
     read_dt_string("/sys/firmware/devicetree/base/hardware", out->hardware, sizeof(out->hardware));
 

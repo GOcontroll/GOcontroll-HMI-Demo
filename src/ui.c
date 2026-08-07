@@ -375,6 +375,32 @@ static lv_obj_t *add_kv_row(lv_obj_t *parent, const char *key, const char *val,
     return v;
 }
 
+/* The device tree still calls this board "Moduline Display" — the kernel's
+ * model/hardware strings predate the HMI1 name. Rewrite it for presentation
+ * only: identify_t keeps the verbatim string, so anything matching on what the
+ * hardware actually reports still sees the real value. Returns raw unchanged
+ * when there is nothing to rewrite or the result would not fit. */
+static const char *product_name_for_display(const char *raw, char *buf, size_t buflen)
+{
+    static const char legacy[] = "Moduline Display";
+    static const char current[] = "Moduline HMI1";
+
+    const char *hit = raw ? strstr(raw, legacy) : NULL;
+    if (!hit)
+        return raw;
+
+    size_t head = (size_t)(hit - raw);
+    if (head >= buflen)
+        return raw;
+
+    memcpy(buf, raw, head);
+    int n = snprintf(buf + head, buflen - head, "%s%s",
+                     current, hit + sizeof(legacy) - 1);
+    if (n < 0 || (size_t)n >= buflen - head)
+        return raw;
+    return buf;
+}
+
 static lv_obj_t *make_info_panel(lv_obj_t *parent, const char *heading)
 {
     lv_obj_t *card = lv_obj_create(parent);
@@ -471,8 +497,11 @@ static void build_info_hardware_side(lv_obj_t *side)
 
     /* Hardware card. */
     lv_obj_t *hw = make_info_panel(side, "Hardware");
-    add_kv_row(hw, "Model",    id.model,    120);
-    add_kv_row(hw, "Board",    id.hardware, 120);
+    char model_buf[IDENTIFY_STR_MAX], board_buf[IDENTIFY_STR_MAX];
+    add_kv_row(hw, "Model",
+               product_name_for_display(id.model, model_buf, sizeof model_buf), 120);
+    add_kv_row(hw, "Board",
+               product_name_for_display(id.hardware, board_buf, sizeof board_buf), 120);
 
     /* Modules card. */
     lv_obj_t *mods = make_info_panel(side, "Modules");
@@ -518,7 +547,7 @@ static void build_info_product_side(lv_obj_t *side)
     lv_obj_remove_flag(hero, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *title = lv_label_create(hero);
-    lv_label_set_text(title, "Moduline Display I");
+    lv_label_set_text(title, "Moduline HMI1");
     style_heading(title);
 
     lv_obj_t *tag = lv_label_create(hero);
