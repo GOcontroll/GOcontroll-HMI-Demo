@@ -33,8 +33,13 @@ override_dh_auto_install:
 	install -Dm644 debian/gocontroll-hmi-demo.service    debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-demo.service
 	install -Dm644 debian/gocontroll_demo.service        debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll_demo.service
 	install -Dm644 debian/gocontroll-hmi-splash.service  debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-splash.service
+	install -Dm755 scripts/gocontroll-hmi-display-recover \
+	    debian/gocontroll-hmi-demo/usr/bin/gocontroll-hmi-display-recover
+	install -Dm644 debian/gocontroll-hmi-display-recover.service \
+	    debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-display-recover.service
 
 override_dh_installsystemd:
 	dh_installsystemd --name=gocontroll-hmi-demo   gocontroll-hmi-demo.service
 	dh_installsystemd --name=gocontroll_demo       gocontroll_demo.service
 	dh_installsystemd --name=gocontroll-hmi-splash gocontroll-hmi-splash.service
+	dh_installsystemd --name=gocontroll-hmi-display-recover gocontroll-hmi-display-recover.service

@@ -1,0 +1,5 @@
+# These are consumed on the target, which is Linux. A CRLF checkout on a
+# Windows working copy would break the shebang ("bad interpreter") and the
+# systemd unit parsing, so pin them regardless of core.autocrlf.
+scripts/*        text eol=lf
+debian/*.service text eol=lf
