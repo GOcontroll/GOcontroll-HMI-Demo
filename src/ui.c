@@ -35,9 +35,12 @@ LV_FONT_DECLARE(lv_font_montserrat_14_ext);
 #define CHART_POINTS    60   /* 60 s rolling window at 1 Hz */
 #define GAUGE_RANGE_MV  16000 /* 0 - 16 V in mV for arc value */
 #define BACKLIGHT_SYSFS "/sys/class/backlight/max25014/brightness"
+#define IPC_RESCAN_MS   2000  /* don't walk /proc more often than this */
 
 static struct {
     pid_t            demo_pid;
+    uint32_t         ipc_last_scan;   /* lv_tick when we last walked /proc */
+    int              ipc_scanned;     /* ipc_last_scan holds a real timestamp */
     hmi_config_t     cfg;
     hmi_settings_t  *settings;
     char             asset_dir[128];
@@ -69,13 +72,48 @@ static struct {
     lv_obj_t *slider_bright, *cb_clock;
 } g;
 
+/* --- Simulink IPC target ---------------------------------------------- */
+/* The pid is looked up once in main(), but the backend is a separate service
+ * that can come and go under us. dh_installsystemd restarts the four units in
+ * four separate transactions, so the unit's After=gocontroll_demo.service does
+ * not order a package upgrade: the HMI regularly restarts first and captures
+ * the pid the backend is about to leave behind. Reads then fail with ESRCH
+ * forever and both gauges sit at "-" until someone restarts the HMI by hand.
+ *
+ * So treat the pid as a cache and re-resolve it whenever IPC fails. Rate
+ * limited, because "no backend at all" is a documented, permanent state and
+ * must not walk /proc at the tick rate. */
+static pid_t ipc_target(void)
+{
+    if (g.demo_pid >= 0) return g.demo_pid;
+
+    if (g.ipc_scanned && lv_tick_elaps(g.ipc_last_scan) < IPC_RESCAN_MS) return -1;
+    g.ipc_scanned   = 1;
+    g.ipc_last_scan = lv_tick_get();
+
+    g.demo_pid = ipc_find_pid(IPC_PROCESS_NAME);
+    return g.demo_pid;
+}
+
+/* A failed transfer means the pid is stale (the backend exited) or the address
+ * is wrong. Drop the cache either way: the next call re-resolves, and if the
+ * pid was fine the rescan simply hands back the same one. */
+static void ipc_invalidate(void)
+{
+    g.demo_pid = -1;
+}
+
 /* --- asap scalar read helper ------------------------------------------ */
 static int read_u16(const asap_element_t *el, uint16_t *out)
 {
-    if (g.demo_pid < 0) return -1;
+    pid_t pid = ipc_target();
+    if (pid < 0) return -1;
     size_t n = asap_datatype_size(el->type);
     uint8_t buf[8] = {0};
-    if (ipc_read(g.demo_pid, el->address, buf, n) != (ssize_t)n) return -1;
+    if (ipc_read(pid, el->address, buf, n) != (ssize_t)n) {
+        ipc_invalidate();
+        return -1;
+    }
     switch (el->type) {
     case DTYPE_UINT8:
     case DTYPE_INT8:     *out = buf[0];                               return 0;
@@ -153,9 +191,11 @@ static void write_backlight(int32_t v)
     if (f) { fprintf(f, "%d\n", (int)v); fclose(f); }
     /* Also keep Simulink's DisplayBrightness parameter in sync so its
      * internal model sees the current level. */
-    if (g.demo_pid >= 0) {
+    pid_t pid = ipc_target();
+    if (pid >= 0) {
         uint8_t byte = (uint8_t)v;
-        ipc_write(g.demo_pid, g.cfg.display_brightness.address, &byte, 1);
+        if (ipc_write(pid, g.cfg.display_brightness.address, &byte, 1) != 1)
+            ipc_invalidate();
     }
 }
 

@@ -121,9 +121,12 @@ int main(int argc, char **argv)
     }
 
     /* --- Simulink IPC target ------------------------------------------ */
-    pid_t demo_pid = ipc_find_pid("gocontroll_demo");
+    /* Only a starting point: the UI re-resolves this whenever IPC fails, so a
+     * backend that starts later — or restarts — is picked up on its own. */
+    pid_t demo_pid = ipc_find_pid(IPC_PROCESS_NAME);
     if (demo_pid < 0) {
-        fprintf(stderr, "warning: gocontroll_demo not running; voltages unavailable\n");
+        fprintf(stderr, "warning: %s not running; voltages unavailable until it is\n",
+                IPC_PROCESS_NAME);
     }
 
     hmi_config_t cfg;

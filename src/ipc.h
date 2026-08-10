@@ -5,11 +5,15 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+/** The Simulink backend we read K15/K30 from and write DisplayBrightness to.
+ *  Exactly 15 characters, so it still fits /proc/<pid>/comm (TASK_COMM_LEN). */
+#define IPC_PROCESS_NAME "gocontroll_demo"
+
 /**
  * Find the PID of a running process by its executable basename.
  * Scans /proc/<pid>/comm.
  *
- * @param name basename to look for (e.g. "gocontroll_demo")
+ * @param name basename to look for (e.g. IPC_PROCESS_NAME)
  * @return     the PID, or -1 if not found.
  */
 pid_t ipc_find_pid(const char *name);
