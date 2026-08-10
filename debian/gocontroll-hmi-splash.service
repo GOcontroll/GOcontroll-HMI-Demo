@@ -1,8 +1,14 @@
 [Unit]
 Description=GOcontroll boot splash (DRM, pre-HMI)
 DefaultDependencies=no
-# Needs /dev/dri/card1 populated by udev and /usr mounted for the asset.
-After=systemd-tmpfiles-setup.service systemd-udevd.service local-fs.target
+# Neither systemd-tmpfiles-setup nor local-fs.target is a real precondition:
+# /dev/dri/card1 is created by devtmpfs when the DRM device registers, and the
+# asset sits on the root fs, which the kernel already mounted (/usr is not a
+# separate mount). Ordering behind them cost ~0.7s of black screen on an HMI1 —
+# the framebuffer is up at 0.72s but tmpfiles-setup only finished at 2.0s.
+# The actual gate is gocontroll-hmi-display-recover: it orders itself Before=
+# us and notifies READY only once card1 exists.
+After=systemd-udevd.service
 Before=basic.target
 Conflicts=shutdown.target
 

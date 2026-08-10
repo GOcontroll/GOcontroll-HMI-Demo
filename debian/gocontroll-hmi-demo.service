@@ -2,7 +2,13 @@
 Description=GOcontroll LVGL HMI demo (direct KMS, no compositor)
 # Start after the Simulink backend so IPC target exists, and after getty@tty1
 # has set up the VT.
-After=gocontroll_demo.service systemd-user-sessions.service
+#
+# Deliberately NOT ordered after systemd-user-sessions.service: that unit pulls
+# in network.target -> NetworkManager and only exists to clear /run/nologin for
+# login sessions, neither of which a direct-KMS app needs. On an HMI1 it delayed
+# us by ~1.0s — the Simulink backend was ready at 1.7s while user-sessions did
+# not settle until 3.7s.
+After=gocontroll_demo.service
 Wants=gocontroll_demo.service
 # Replace getty@tty1 so we own the VT and can grab DRM master.
 Conflicts=getty@tty1.service

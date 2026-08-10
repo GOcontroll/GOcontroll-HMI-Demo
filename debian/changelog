@@ -1,3 +1,17 @@
+gocontroll-hmi-demo (1.0.1) unstable; urgency=medium
+
+  * Drop two boot orderings that were never real preconditions. Measured on a
+    Moduline HMI1 with systemd-analyze critical-chain, kernel time 1.12s in
+    both runs:
+    - splash: no longer ordered after systemd-tmpfiles-setup and
+      local-fs.target. The asset sits on the root fs and card1 comes from
+      devtmpfs, so both only added latency: 3.37s -> 2.68s.
+    - demo: no longer ordered after systemd-user-sessions, which pulls in
+      network.target and NetworkManager. The Simulink backend, the actual
+      precondition, was ready at 1.7s: 5.54s -> 4.48s.
+
+ -- GOcontroll <info@gocontroll.com>  Mon, 10 Aug 2026 13:30:21 +0200
+
 gocontroll-hmi-demo (1.0.0) unstable; urgency=medium
 
   * Initial release: LVGL-based HMI demo rendering directly to KMS/DRM.
