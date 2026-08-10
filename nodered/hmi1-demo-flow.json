@@ -1,0 +1,306 @@
+[
+    {
+        "id": "5bb8640501025fc4",
+        "type": "tab",
+        "label": "HMI1 Demo",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "8f0589183ce3ea2f",
+        "type": "Write-Memory",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "key": "TEMPERATURE",
+        "memtype": "ram",
+        "inputtype": "payload",
+        "decimal": "1",
+        "x": 390,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "c94ace902a221519",
+        "type": "inject",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "25.8",
+        "payloadType": "num",
+        "x": 130,
+        "y": 120,
+        "wires": [
+            [
+                "8f0589183ce3ea2f"
+            ]
+        ]
+    },
+    {
+        "id": "357d04813797eba6",
+        "type": "inject",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "50",
+        "payloadType": "num",
+        "x": 130,
+        "y": 160,
+        "wires": [
+            [
+                "8f0589183ce3ea2f"
+            ]
+        ]
+    },
+    {
+        "id": "01a97b05196f1279",
+        "type": "Write-Memory",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "key": "PRESSURE",
+        "memtype": "ram",
+        "inputtype": "payload",
+        "decimal": "1",
+        "x": 370,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "b29955e6aa1199e8",
+        "type": "Write-Memory",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "key": "SOC",
+        "memtype": "ram",
+        "inputtype": "payload",
+        "decimal": "1",
+        "x": 350,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "f77d7aa6394b598b",
+        "type": "Write-Memory",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "key": "POWER",
+        "memtype": "ram",
+        "inputtype": "payload",
+        "decimal": "1",
+        "x": 360,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "ea41f3cefbfa4347",
+        "type": "inject",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "280",
+        "payloadType": "num",
+        "x": 130,
+        "y": 200,
+        "wires": [
+            [
+                "01a97b05196f1279"
+            ]
+        ]
+    },
+    {
+        "id": "175c549fca8eaf01",
+        "type": "inject",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "260",
+        "payloadType": "num",
+        "x": 130,
+        "y": 240,
+        "wires": [
+            [
+                "01a97b05196f1279"
+            ]
+        ]
+    },
+    {
+        "id": "c7a6d89a432bb52c",
+        "type": "inject",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "78.5",
+        "payloadType": "num",
+        "x": 130,
+        "y": 280,
+        "wires": [
+            [
+                "b29955e6aa1199e8"
+            ]
+        ]
+    },
+    {
+        "id": "d6e1a24665df3727",
+        "type": "inject",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "70.2",
+        "payloadType": "num",
+        "x": 130,
+        "y": 320,
+        "wires": [
+            [
+                "b29955e6aa1199e8"
+            ]
+        ]
+    },
+    {
+        "id": "c5526c47ca212f6a",
+        "type": "inject",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "14.5",
+        "payloadType": "num",
+        "x": 130,
+        "y": 360,
+        "wires": [
+            [
+                "f77d7aa6394b598b"
+            ]
+        ]
+    },
+    {
+        "id": "7f86495dd89499d3",
+        "type": "inject",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "25.5",
+        "payloadType": "num",
+        "x": 130,
+        "y": 400,
+        "wires": [
+            [
+                "f77d7aa6394b598b"
+            ]
+        ]
+    },
+    {
+        "id": "4494c6e2b9295e2e",
+        "type": "Controller-Active",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "x": 360,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "a539039f4d16ee27",
+        "type": "inject",
+        "z": "5bb8640501025fc4",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"controllerActive\" : 0 }",
+        "payloadType": "str",
+        "x": 130,
+        "y": 500,
+        "wires": [
+            [
+                "4494c6e2b9295e2e"
+            ]
+        ]
+    },
+    {
+        "id": "fbab071c76ceaf99",
+        "type": "comment",
+        "z": "5bb8640501025fc4",
+        "name": "Manipulate signals on the Moduline HMI1 demo application",
+        "info": "",
+        "x": 270,
+        "y": 60,
+        "wires": []
+    }
+]

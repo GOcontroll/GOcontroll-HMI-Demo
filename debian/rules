@@ -35,6 +35,12 @@ override_dh_auto_install:
 	install -Dm644 debian/gocontroll-hmi-splash.service  debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-splash.service
 	install -Dm755 scripts/gocontroll-hmi-display-recover \
 	    debian/gocontroll-hmi-demo/usr/bin/gocontroll-hmi-display-recover
+	# Node-RED tab that drives the /dev/shm process values, plus the helper that
+	# merges it into an existing Node-RED installation (called from postinst).
+	install -Dm644 nodered/hmi1-demo-flow.json \
+	    debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/nodered/hmi1-demo-flow.json
+	install -Dm755 scripts/gocontroll-hmi-demo-nodered-flow \
+	    debian/gocontroll-hmi-demo/usr/bin/gocontroll-hmi-demo-nodered-flow
 	install -Dm644 debian/gocontroll-hmi-display-recover.service \
 	    debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-display-recover.service
 

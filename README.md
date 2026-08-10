@@ -64,9 +64,14 @@ src/
 splash/               standalone boot-splash binary (DRM + libpng, no LVGL)
 scripts/
   gen_module_pins.py  regenerates src/module_pins.{c,h}
-  gocontroll-hmi-i2c-recover  rebinds display i2c slaves after a stuck-SCL boot
+  gocontroll-hmi-display-recover  rebinds the display i2c slaves and repairs the
+                      backlight after a stuck-SCL boot or a supply dip
+  gocontroll-hmi-demo-nodered-flow  merges the Node-RED tab below into an
+                      existing Node-RED installation
+nodered/
+  hmi1-demo-flow.json Node-RED tab that drives the /dev/shm process values
 assets/               logos and HMI1 product images
-debian/               packaging: control, rules, systemd units
+debian/               packaging: control, rules, postinst, systemd units
 lv_conf.h             LVGL build configuration
 thirdparty/lvgl       LVGL v9 as a git submodule
 ```
@@ -78,7 +83,7 @@ Native build on the device:
 ```sh
 git clone --recurse-submodules https://github.com/GOcontroll/GOcontroll-HMI-Demo.git
 cd GOcontroll-HMI-Demo
-sudo apt install -y cmake pkg-config libdrm-dev libgbm-dev libegl-dev libgles-dev \
+apt install -y cmake pkg-config libdrm-dev libgbm-dev libegl-dev libgles-dev \
     libevdev-dev libcjson-dev libpng-dev libfreetype-dev build-essential
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
@@ -96,7 +101,7 @@ CMake options:
   for richer UIs.
 
 Running the binary by hand needs DRM master on `/dev/dri/card1`, so stop the
-packaged service first (`sudo systemctl stop gocontroll-hmi-demo`) and run it
+packaged service first (`systemctl stop gocontroll-hmi-demo`) and run it
 from a TTY that no compositor or splash is holding.
 
 ## Installing and running on a Moduline HMI1
@@ -104,7 +109,7 @@ from a TTY that no compositor or splash is holding.
 ### 1. Build the Debian package
 
 ```sh
-sudo apt install -y debhelper dpkg-dev
+apt install -y debhelper dpkg-dev
 dpkg-buildpackage -us -uc -b
 ```
 
@@ -118,7 +123,7 @@ The result is `../gocontroll-hmi-demo_<version>_<arch>.deb`.
 ### 2. Install it on the device
 
 ```sh
-sudo apt install ./gocontroll-hmi-demo_*.deb
+apt install ./gocontroll-hmi-demo_*.deb
 ```
 
 The package `gocontroll-hmi-demo` installs:
@@ -126,13 +131,14 @@ The package `gocontroll-hmi-demo` installs:
 * `/usr/bin/gocontroll-hmi-demo` — the dashboard binary
 * `/usr/bin/gocontroll-hmi-splash` — the boot splash
 * `/usr/bin/gocontroll_demo` — the Simulink companion process
-* `/usr/bin/gocontroll-hmi-i2c-recover` — display-i2c recovery helper
+* `/usr/bin/gocontroll-hmi-display-recover` — display/backlight recovery helper
+* `/usr/bin/gocontroll-hmi-demo-nodered-flow` — Node-RED tab installer
 * `/usr/share/gocontroll-hmi-demo/` — `GOcontroll.png`, `GOcontroll_header.png`,
   `GOcontroll_splash.png`, `hmi1_3d.png`, `hmi1_back.png`, `hmi1_connectors.png`,
-  `signals.json`, `parameters.json`
+  `signals.json`, `parameters.json`, `nodered/hmi1-demo-flow.json`
 * four systemd units in `/usr/lib/systemd/system/`:
   `gocontroll-hmi-demo.service`, `gocontroll_demo.service`,
-  `gocontroll-hmi-splash.service` and `gocontroll-hmi-i2c-recover.service`
+  `gocontroll-hmi-splash.service` and `gocontroll-hmi-display-recover.service`
 
 `dh_installsystemd` enables and starts all four units at install time, so on a
 normal device the splash and dashboard come up without further action.
@@ -140,11 +146,11 @@ normal device the splash and dashboard come up without further action.
 ### 3. Control the services
 
 ```sh
-sudo systemctl status  gocontroll-hmi-demo.service     # is the dashboard up?
-sudo systemctl restart gocontroll-hmi-demo.service     # reload after an upgrade
-sudo systemctl stop    gocontroll-hmi-demo.service     # release the panel
-sudo systemctl enable  gocontroll-hmi-demo.service     # start on every boot
-sudo journalctl -u gocontroll-hmi-demo -f              # follow its log
+systemctl status  gocontroll-hmi-demo     # is the dashboard up?
+systemctl restart gocontroll-hmi-demo     # reload after an upgrade
+systemctl stop    gocontroll-hmi-demo     # release the panel
+systemctl enable  gocontroll-hmi-demo     # start on every boot
+journalctl -u gocontroll-hmi-demo -f      # follow its log
 ```
 
 Notes on the unit wiring, all visible in `debian/*.service`:
@@ -156,14 +162,56 @@ Notes on the unit wiring, all visible in `debian/*.service`:
   boot; otherwise start it explicitly.
 * It stops the splash synchronously via `ExecStartPre` before grabbing DRM
   master — a unit-level `Conflicts=` loses that race at boot.
-* `gocontroll_demo.service` (the Simulink backend), the splash and the i2c
+* `gocontroll_demo.service` (the Simulink backend), the splash and the display
   recovery are all `WantedBy=sysinit.target`, i.e. very early in boot.
 * Without `gocontroll_demo` running, the demo still starts; K15/K30 simply show
-  `-`.
+  `-`. The pid is re-resolved whenever IPC fails, so a backend that starts or
+  restarts later is picked up within a couple of seconds without restarting the
+  HMI.
 
 Pressing **Exit demo** on the Settings screen makes the process exit cleanly.
 Since the unit has no `Restart=`, the panel stays dark until you start the
 service again.
+
+### 4. Driving the process values from Node-RED
+
+`nodered/hmi1-demo-flow.json` is a single Node-RED tab, **HMI1 Demo**, that
+changes what the four process-value cards on the Live Data screen show. It holds
+one `Write-Memory` node per value (`TEMPERATURE`, `PRESSURE`, `SOC`, `POWER`) and
+two inject buttons each, so the values can be switched while presenting the
+demo. `Write-Memory` with `memtype: ram` writes `/dev/shm/<KEY>` as an ASCII
+float, which is exactly what `src/shm_data.c` reads — no other coupling between
+the two.
+
+The tab also carries a `Controller-Active` node that fires once on deploy and
+writes `/sys/class/leds/power-active/brightness`; with the shipped payload
+(`controllerActive: 0`) that switches the green power LED **off**.
+
+`postinst` calls the installer, so a normal `apt install` brings the tab along:
+
+```sh
+gocontroll-hmi-demo-nodered-flow            # add the tab if it isn't there
+gocontroll-hmi-demo-nodered-flow --check    # report, change nothing
+gocontroll-hmi-demo-nodered-flow --force    # re-apply, discarding tab edits
+```
+
+Only the tab with our own id is touched: every other tab, subflow and config
+node in `flows.json` is passed through unchanged, and the previous file is kept
+as `flows.json.pre-gocontroll-hmi-demo` whenever something is written. The
+default is `--if-absent`, so an upgrade never overwrites edits made to the tab on
+the device — use `--force` for that. Node-RED only reads `flows.json` at startup,
+so the installer restarts `nodered` if it was running.
+
+Two things it cannot do for you:
+
+* The nodes come from the GOcontroll npm package, whose scope differs per image
+  (`@gocontroll-nl/node-red-gocontroll` on older ones,
+  `@gocontroll/node-red-gocontroll` from 2.3 on). If it is missing the installer
+  says so and the tab loads with unknown node types; fix it with
+  `cd ~/.node-red && npm install @gocontroll/node-red-gocontroll`.
+* It does not enable `nodered`. On an image where Node-RED is disabled,
+  `systemctl enable --now nodered` exposes the editor on port 1880 — a
+  deliberate decision, so the package leaves it alone.
 
 ## Customising the dashboard
 
@@ -241,7 +289,7 @@ tabview…), enable it in `lv_conf.h` first — widgets are compiled in per
 | Source file | Provides | Read from |
 |---|---|---|
 | `src/ipc.c` + `src/config.c` | K15 / K30 voltages, `DisplayBrightness` write-back | `process_vm_readv/writev` into the running `gocontroll_demo` process |
-| `src/shm_data.c` | temperature, pressure, SOC, power | `/dev/shm/TEMPERATURE`, `/dev/shm/PRESSURE`, `/dev/shm/SOC`, `/dev/shm/POWER` — plain ASCII floats, seeded with 10/20/30/40 if absent |
+| `src/shm_data.c` | temperature, pressure, SOC, power | `/dev/shm/TEMPERATURE`, `/dev/shm/PRESSURE`, `/dev/shm/SOC`, `/dev/shm/POWER` — plain ASCII floats, seeded with 10/20/30/40 if absent, written by the shipped Node-RED tab |
 | `src/sysinfo.c` | IPv4, MAC, CPU temperature | `getifaddrs()`, `/sys/class/net/*/address`, the `cpu-thermal` zone under `/sys/class/thermal` |
 | `src/identify.c` | distro, kernel, serial, model, board, module slots | `/etc/os-release`, `uname()`, `/sys/firmware/devicetree/base/{model,hardware}`, `/etc/go-sn`, `/usr/lib/gocontroll/modules` |
 | `src/product_info.c` | the specification cards on the Information screen | Hand-curated tables (`g_product_tagline`, `g_product_description`, `g_product_sections`) — edit this file to change the specs shown |

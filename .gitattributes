@@ -7,3 +7,5 @@ scripts/**       text eol=lf
 # chokes on debian/rules, so the package cannot be built from a Windows
 # working copy at all.
 debian/**        text eol=lf
+# Read on the target by Node-RED and by the installer script.
+nodered/**       text eol=lf

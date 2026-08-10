@@ -1,0 +1,111 @@
+#!/bin/sh
+# Put the "HMI1 Demo" Node-RED tab into an existing Node-RED installation.
+#
+# The tab holds four Write-Memory nodes (TEMPERATURE, PRESSURE, SOC, POWER) with
+# inject buttons, so the process values on the demo's Live Data screen can be
+# changed from the Node-RED editor. Write-Memory writes /dev/shm/<KEY>, which is
+# exactly what src/shm_data.c reads.
+#
+#   gocontroll-hmi-demo-nodered-flow            add the tab if it isn't there
+#   gocontroll-hmi-demo-nodered-flow --force    replace the tab with the shipped one
+#   gocontroll-hmi-demo-nodered-flow --check    report, change nothing
+#
+# Never destructive to flows the user built: only the tab carrying our own id is
+# touched, everything else in flows.json is passed through untouched, and the
+# previous file is kept as flows.json.pre-gocontroll-hmi-demo whenever we write.
+#
+# Node-RED reads flows.json once at start, so the service is restarted (only if
+# it was running, and only if we actually changed something).
+set -u
+
+FLOW=/usr/share/gocontroll-hmi-demo/nodered/hmi1-demo-flow.json
+USER_DIR=${NODE_RED_USER_DIR:-/root/.node-red}
+MODE=if-absent
+
+while [ $# -gt 0 ]; do
+	case $1 in
+	--force)     MODE=force ;;
+	--check)     MODE=check ;;
+	--if-absent) MODE=if-absent ;;
+	--flow)      shift; FLOW=${1:-} ;;
+	--user-dir)  shift; USER_DIR=${1:-} ;;
+	-h|--help)   sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+	*)           echo "unknown option: $1" >&2; exit 2 ;;
+	esac
+	shift
+done
+
+# Node-RED not installed on this device: nothing to do, and no reason to make a
+# package installation fail over it.
+[ -d "$USER_DIR" ] || { echo "nodered: $USER_DIR does not exist, skipping"; exit 0; }
+[ -f "$FLOW" ]     || { echo "nodered: $FLOW is missing, skipping";        exit 0; }
+command -v node >/dev/null 2>&1 || { echo "nodered: no node interpreter, skipping"; exit 0; }
+
+# The tab needs Write-Memory and Controller-Active from the GOcontroll node
+# package. Its npm scope changed across images (@gocontroll-nl -> @gocontroll),
+# so look for the node implementation rather than a package name.
+if ! ls "$USER_DIR"/node_modules/@gocontroll*/node-red-gocontroll/nodes/write_memory.js >/dev/null 2>&1; then
+	echo "nodered: warning: the GOcontroll node package is not installed in $USER_DIR;"
+	echo "nodered:          the tab will load with unknown node types until you run"
+	echo "nodered:          (cd $USER_DIR && npm install @gocontroll/node-red-gocontroll)"
+fi
+
+FLOWS="$USER_DIR/flows.json"
+
+# Exit status: 0 = file written, 10 = nothing to do, 1 = error.
+node -e '
+const fs = require("fs");
+const [flowPath, flowsPath, mode] = process.argv.slice(1);
+
+const shipped = JSON.parse(fs.readFileSync(flowPath, "utf8"));
+const tab = shipped.find(n => n.type === "tab");
+if (!tab) { console.error("nodered: shipped flow has no tab node"); process.exit(1); }
+
+let current = [];
+if (fs.existsSync(flowsPath)) {
+    const raw = fs.readFileSync(flowsPath, "utf8").trim();
+    if (raw) current = JSON.parse(raw);
+    if (!Array.isArray(current)) { console.error("nodered: " + flowsPath + " is not a flow array"); process.exit(1); }
+}
+
+const present = current.some(n => n.id === tab.id);
+const label = JSON.stringify(tab.label);
+
+if (mode === "check") {
+    console.log("nodered: tab " + label + " (" + tab.id + ") is " + (present ? "present" : "absent")
+                + " in " + flowsPath);
+    process.exit(10);
+}
+if (present && mode === "if-absent") {
+    console.log("nodered: tab " + label + " already present, leaving flows.json alone");
+    process.exit(10);
+}
+
+/* Keep everything that is not ours: the tab itself and any node parented to it
+ * (z === tab.id). Subflows and other tabs pass through untouched. */
+const kept = current.filter(n => n.id !== tab.id && n.z !== tab.id);
+const merged = kept.concat(shipped);
+
+if (fs.existsSync(flowsPath))
+    fs.copyFileSync(flowsPath, flowsPath + ".pre-gocontroll-hmi-demo");
+
+const tmp = flowsPath + ".tmp-gocontroll";
+fs.writeFileSync(tmp, JSON.stringify(merged, null, 4) + "\n");
+fs.renameSync(tmp, flowsPath);
+
+console.log("nodered: " + (present ? "replaced" : "added") + " tab " + label
+            + " (" + kept.length + " existing node(s) kept, " + shipped.length + " added)");
+' "$FLOW" "$FLOWS" "$MODE"
+
+rc=$?
+[ "$rc" = 10 ] && exit 0
+[ "$rc" = 0 ]  || exit "$rc"
+
+# Only now, and only if it is actually running: Node-RED parses flows.json at
+# startup, so an untouched runtime would keep serving the old flows.
+if systemctl is-active --quiet nodered 2>/dev/null; then
+	echo "nodered: restarting nodered so it picks the tab up"
+	systemctl restart nodered
+else
+	echo "nodered: nodered is not running; the tab loads when you start it"
+fi

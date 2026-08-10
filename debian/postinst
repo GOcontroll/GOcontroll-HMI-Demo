@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+configure)
+	# Add the "HMI1 Demo" Node-RED tab so the process values on the Live Data
+	# screen can be driven from the editor. --if-absent, so an operator's own
+	# edits to the tab survive an upgrade; re-apply with --force by hand.
+	# Node-RED is not a dependency of this package, and a device without it is
+	# perfectly fine, so never let this fail the installation.
+	gocontroll-hmi-demo-nodered-flow --if-absent || true
+	;;
+esac
+
+#DEBHELPER#
+
+exit 0
