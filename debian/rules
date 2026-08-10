@@ -28,8 +28,18 @@ override_dh_auto_install:
 	install -Dm644 assets/hmi1_back.png           debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/hmi1_back.png
 	install -Dm644 splash/assets/GOcontroll_splash.png \
 	    debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/GOcontroll_splash.png
-	install -Dm644 signals.json                   debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/signals.json
-	install -Dm644 parameters.json                debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/parameters.json
+	# signals.json and parameters.json are generated per Simulink build from the
+	# .a2l and are gitignored, so a fresh clone does not have them and an
+	# unconditional install fails the build. Ship them when they are there;
+	# without them src/config.c derives the addresses from the ELF symbols of
+	# the bundled gocontroll_demo binary.
+	for f in signals.json parameters.json; do \
+	    if [ -f "$$f" ]; then \
+	        install -Dm644 "$$f" debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/"$$f"; \
+	    else \
+	        echo "note: $$f absent, relying on the ELF-symbol fallback"; \
+	    fi; \
+	done
 	install -Dm644 debian/gocontroll-hmi-demo.service    debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-demo.service
 	install -Dm644 debian/gocontroll_demo.service        debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll_demo.service
 	install -Dm644 debian/gocontroll-hmi-splash.service  debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-splash.service

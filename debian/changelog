@@ -9,8 +9,14 @@ gocontroll-hmi-demo (1.0.1) unstable; urgency=medium
     - demo: no longer ordered after systemd-user-sessions, which pulls in
       network.target and NetworkManager. The Simulink backend, the actual
       precondition, was ready at 1.7s: 5.54s -> 4.48s.
+  * Only install signals.json and parameters.json when they are present. Both
+    are generated per Simulink build from the .a2l, are gitignored and have
+    never been committed, so the unconditional install made dpkg-buildpackage
+    fail on every fresh clone. When they are absent src/config.c already falls
+    back to addresses derived from the ELF symbols of the bundled
+    gocontroll_demo binary.
 
- -- GOcontroll <info@gocontroll.com>  Mon, 10 Aug 2026 13:30:21 +0200
+ -- GOcontroll <info@gocontroll.com>  Mon, 10 Aug 2026 14:42:35 +0200
 
 gocontroll-hmi-demo (1.0.0) unstable; urgency=medium
 
