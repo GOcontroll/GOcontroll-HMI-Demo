@@ -114,9 +114,11 @@ dpkg-buildpackage -us -uc -b
 ```
 
 `debian/rules` installs `signals.json` and `parameters.json` from the source
-root, and both files are gitignored (they are generated per Simulink build — see
-below). Make sure they are present before running `dpkg-buildpackage`, or the
-package build will fail on the missing file.
+root when they are present. Both are gitignored (they are generated per Simulink
+build — see below), so a fresh clone does not have them; the build then skips
+them and `src/config.c` falls back to addresses derived from the ELF symbols of
+the bundled `gocontroll_demo`. Supply them if you want the package to ship the
+exact Simulink mapping.
 
 The result is `../gocontroll-hmi-demo_<version>_<arch>.deb`.
 
