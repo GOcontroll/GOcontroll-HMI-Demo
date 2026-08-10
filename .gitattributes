@@ -1,5 +1,9 @@
 # These are consumed on the target, which is Linux. A CRLF checkout on a
 # Windows working copy would break the shebang ("bad interpreter") and the
 # systemd unit parsing, so pin them regardless of core.autocrlf.
-scripts/*        text eol=lf
-debian/*.service text eol=lf
+scripts/**       text eol=lf
+# The whole packaging directory, not just the units: with CRLF, dpkg-source
+# rejects debian/source/format ("format '3.0 (native)' is invalid") and make
+# chokes on debian/rules, so the package cannot be built from a Windows
+# working copy at all.
+debian/**        text eol=lf
