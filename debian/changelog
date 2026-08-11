@@ -1,3 +1,21 @@
+gocontroll-hmi-demo (1.0.2) unstable; urgency=medium
+
+  * Read the serial number from where it actually lives. identify.c read
+    /etc/go-sn, a file that does not exist on any image — the Information
+    screen has always shown "-" for Serial. go-sn stores the 19-byte string at
+    the start of the GPT partition labelled 'serial', falling back to the last
+    sector of /dev/mmcblk0 on legacy units; read both in that order, validate
+    the four-group layout, and keep the field empty when nothing is programmed.
+  * Show the demo's own version on the Information screen, under System.
+    CMakeLists.txt parses it out of the top of this changelog and passes it in
+    as GOCONTROLL_HMI_DEMO_VERSION, so the version on screen cannot drift from
+    the version of the .deb.
+  * Build-Depend on libevdev-dev. CMakeLists.txt has always required it through
+    pkg_check_modules, but it was missing from the list, so the build failed at
+    configure time on any machine that did not happen to have it installed.
+
+ -- GOcontroll <info@gocontroll.com>  Tue, 11 Aug 2026 15:10:00 +0200
+
 gocontroll-hmi-demo (1.0.1) unstable; urgency=medium
 
   * Drop two boot orderings that were never real preconditions. Measured on a

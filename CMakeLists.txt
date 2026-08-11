@@ -4,6 +4,20 @@ project(gocontroll-hmi-demo C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_EXTENSIONS ON)
 
+# The version the Information screen shows. debian/changelog is the single
+# source of truth — the .deb version already comes from there, so parse it
+# rather than keeping a second copy here that silently drifts. Builds from a
+# tree without debian/ (a bare cmake checkout) fall back to a marker that is
+# obviously not a release.
+set(HMI_DEMO_VERSION "0.0.0-dev")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/debian/changelog")
+    file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/debian/changelog" _changelog_head LIMIT_COUNT 1)
+    if(_changelog_head MATCHES "^[^ ]+ \\(([^)]+)\\)")
+        set(HMI_DEMO_VERSION "${CMAKE_MATCH_1}")
+    endif()
+endif()
+message(STATUS "HMI demo version: ${HMI_DEMO_VERSION}")
+
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
@@ -57,6 +71,10 @@ add_executable(gocontroll-hmi-demo
     src/identify.c
     src/module_pins.c
     src/fonts/lv_font_montserrat_14_ext.c
+)
+
+target_compile_definitions(gocontroll-hmi-demo PRIVATE
+    GOCONTROLL_HMI_DEMO_VERSION="${HMI_DEMO_VERSION}"
 )
 
 target_include_directories(gocontroll-hmi-demo PRIVATE

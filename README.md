@@ -18,7 +18,7 @@ and to reshape into your own UI.
 | Screen | Contents |
 |---|---|
 | **Main** | GOcontroll header + clock, three navigation tiles, footer |
-| **Information** | Left: network (IP/MAC), system (distro, kernel, serial), hardware (model/board) and detected module slots. Right: Moduline HMI1 product specifications |
+| **Information** | Left: network (IP/MAC), system (demo version, distro, kernel, serial), hardware (model/board) and detected module slots. Right: Moduline HMI1 product specifications |
 | **Live Data** | K15 and K30 voltage arc gauges, rolling CPU-temperature chart, and four process values (temperature, pressure, SOC, power) |
 | **Settings** | Connector-A pin table, rear-view photo of the HMI1, display-brightness slider, "show clock" toggle and an "Exit demo" button |
 
@@ -293,7 +293,7 @@ tabview…), enable it in `lv_conf.h` first — widgets are compiled in per
 | `src/ipc.c` + `src/config.c` | K15 / K30 voltages, `DisplayBrightness` write-back | `process_vm_readv/writev` into the running `gocontroll_demo` process |
 | `src/shm_data.c` | temperature, pressure, SOC, power | `/dev/shm/TEMPERATURE`, `/dev/shm/PRESSURE`, `/dev/shm/SOC`, `/dev/shm/POWER` — plain ASCII floats, seeded with 10/20/30/40 if absent, written by the shipped Node-RED tab |
 | `src/sysinfo.c` | IPv4, MAC, CPU temperature | `getifaddrs()`, `/sys/class/net/*/address`, the `cpu-thermal` zone under `/sys/class/thermal` |
-| `src/identify.c` | distro, kernel, serial, model, board, module slots | `/etc/os-release`, `uname()`, `/sys/firmware/devicetree/base/{model,hardware}`, `/etc/go-sn`, `/usr/lib/gocontroll/modules` |
+| `src/identify.c` | distro, kernel, serial, model, board, module slots | `/etc/os-release`, `uname()`, `/sys/firmware/devicetree/base/{model,hardware}`, the `serial` GPT partition (see below), `/usr/lib/gocontroll/modules` |
 | `src/product_info.c` | the specification cards on the Information screen | Hand-curated tables (`g_product_tagline`, `g_product_description`, `g_product_sections`) — edit this file to change the specs shown |
 | `src/controller_pins.c` | the connector-A pin table on Settings | `g_hmi1_system_pins[]` — K15/K30/K31 and both CAN buses |
 | `src/module_pins.c` | per-module pin tables for the MDS1/MDS2 slots | `g_module_defs[]`, generated (see below); compiled in and ready for a screen that wants to show it |
@@ -302,6 +302,22 @@ tabview…), enable it in `lv_conf.h` first — widgets are compiled in per
 The brightness slider writes straight to
 `/sys/class/backlight/max25014/brightness` (so it reacts on every drag event)
 and mirrors the value into Simulink's `DisplayBrightness` parameter.
+
+The serial number is not stored in a file. `/usr/bin/go-sn` keeps it as a bare
+19-byte ASCII string (`XXXX-XXXX-XXXX-XXXX`) at the start of the GPT partition
+labelled `serial` — `/dev/disk/by-partlabel/serial`, `mmcblk0p1` on current
+images — and legacy units flashed before that partition existed keep it in the
+last sector of `/dev/mmcblk0`. `src/identify.c` reads both in that order rather
+than forking `go-sn`, validates the four-group layout, and leaves the field
+empty (shown as `-`) when the unit has no serial programmed. The demo runs as
+root, so the raw block device is readable.
+
+The "HMI demo" row on the same card shows the application's own version. There
+is one source of truth for it: `CMakeLists.txt` parses the top entry of
+`debian/changelog` and passes it in as `GOCONTROLL_HMI_DEMO_VERSION`, so the
+version on screen always matches the version of the installed `.deb`. Bump
+`debian/changelog` and both follow; a cmake build from a tree without `debian/`
+reports `0.0.0-dev`.
 
 To add another process value to Live Data, the shortest path is: add a field to
 `shm_values_t` and an entry to `k_fields[]` in `src/shm_data.c`, then add a

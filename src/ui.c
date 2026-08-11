@@ -16,6 +16,12 @@
 
 #include "lvgl.h"
 
+/* Normally injected by CMake from debian/changelog; only a build that bypasses
+ * our CMakeLists can miss it. */
+#ifndef GOCONTROLL_HMI_DEMO_VERSION
+#define GOCONTROLL_HMI_DEMO_VERSION "unknown"
+#endif
+
 /* Montserrat 14 regenerated locally to include U+00A9 (c) for the main-screen
  * footer — the stock LVGL build only covers ASCII + degree + bullet. The .c
  * source lives in src/fonts/ so we don't patch the lvgl submodule. */
@@ -531,6 +537,7 @@ static void build_info_hardware_side(lv_obj_t *side)
 
     /* System card. */
     lv_obj_t *sw = make_info_panel(side, "System");
+    add_kv_row(sw, "HMI demo",     GOCONTROLL_HMI_DEMO_VERSION, 120);
     add_kv_row(sw, "Distribution", id.os,     120);
     add_kv_row(sw, "Kernel",       id.kernel, 120);
     add_kv_row(sw, "Serial",       id.serial, 120);

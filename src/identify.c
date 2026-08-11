@@ -24,14 +24,47 @@ static void trim(char *s)
     while (n && (s[n-1] == '\n' || s[n-1] == ' ' || s[n-1] == '\r')) s[--n] = 0;
 }
 
-static int slurp_line(const char *path, char *out, size_t out_sz)
+/* The serial number is not a file. /usr/bin/go-sn keeps it as a bare 19-byte
+ * ASCII string ("XXXX-XXXX-XXXX-XXXX", four alphanumeric groups joined by '-')
+ * at the start of the GPT partition labelled 'serial', and falls back to the
+ * last sector of /dev/mmcblk0 on legacy units flashed before that partition
+ * existed. Read both the same way so we never fork; we run as root, so the raw
+ * block device is readable. An unprogrammed unit leaves the area zeroed or
+ * erased, which fails validation and comes back as "" — the UI shows "-". */
+#define SERIAL_LEN 19
+#define SERIAL_LEGACY_SECTOR 512
+
+static int serial_is_valid(const char *s)
 {
-    FILE *f = fopen(path, "r");
-    if (!f) { out[0] = 0; return -1; }
-    if (!fgets(out, (int)out_sz, f)) { out[0] = 0; fclose(f); return -1; }
+    for (int i = 0; i < SERIAL_LEN; i++) {
+        if (i % 5 == 4) { if (s[i] != '-')                       return 0; }
+        else            { if (!isalnum((unsigned char)s[i]))      return 0; }
+    }
+    return s[SERIAL_LEN] == 0;
+}
+
+static int read_serial_from(const char *path, int last_sector, char *out, size_t out_sz)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    if (last_sector && fseek(f, -SERIAL_LEGACY_SECTOR, SEEK_END) != 0) {
+        fclose(f);
+        return -1;
+    }
+    char buf[SERIAL_LEN + 1] = {0};
+    size_t got = fread(buf, 1, SERIAL_LEN, f);
     fclose(f);
-    trim(out);
+    if (got != SERIAL_LEN || !serial_is_valid(buf)) return -1;
+    snprintf(out, out_sz, "%s", buf);
     return 0;
+}
+
+static void read_serial(char *out, size_t out_sz)
+{
+    out[0] = 0;
+    if (read_serial_from("/dev/disk/by-partlabel/serial", 0, out, out_sz) == 0) return;
+    if (read_serial_from("/dev/mmcblk0",                  1, out, out_sz) == 0) return;
+    out[0] = 0;
 }
 
 static void read_os_pretty(char *out, size_t out_sz)
@@ -145,7 +178,7 @@ void identify_collect(identify_t *out)
     read_dt_string("/sys/firmware/devicetree/base/model",    out->model,    sizeof(out->model));
     read_dt_string("/sys/firmware/devicetree/base/hardware", out->hardware, sizeof(out->hardware));
 
-    slurp_line("/etc/go-sn", out->serial, sizeof(out->serial));
+    read_serial(out->serial, sizeof(out->serial));
 
     read_modules(out);
 }

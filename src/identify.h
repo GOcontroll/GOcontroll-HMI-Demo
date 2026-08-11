@@ -6,7 +6,8 @@
 
 /* One-shot snapshot of the controller's identity — the same fields the
  * /usr/bin/identify script prints, read straight from /etc/os-release,
- * /sys/firmware/devicetree, /etc/go-sn and /usr/lib/gocontroll/modules so
+ * /sys/firmware/devicetree, the 'serial' GPT partition and
+ * /usr/lib/gocontroll/modules so
  * we never fork. All strings are nul-terminated; absent fields are "". */
 typedef struct {
     char type[64];          /* human-readable module type or "-" */
