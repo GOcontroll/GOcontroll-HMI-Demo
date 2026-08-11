@@ -19,3 +19,37 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+===============================================================================
+SCOPE OF THIS LICENCE — THIRD-PARTY COMPONENTS
+===============================================================================
+
+The MIT licence above covers the source code written by GOcontroll for this
+project. It does not, and cannot, relicense the following, which are included
+here under their own terms. This section grants no rights and takes none away;
+it only states what the MIT grant above does and does not reach.
+
+  Fonts embedded in the binary
+    src/fonts/lv_font_montserrat_14_ext.c, and lv_font_montserrat_14/24/36
+    compiled in from LVGL, contain glyph bitmaps rendered from:
+      Montserrat — Copyright 2011 The Montserrat Project Authors,
+        SIL Open Font License 1.1 — licenses/Montserrat-OFL-1.1.txt
+      Font Awesome Free 5 — Copyright (c) 2022 Fonticons, Inc.,
+        icons CC BY 4.0, fonts SIL OFL 1.1 with reserved font name
+        "Font Awesome" — licenses/FontAwesome5-Free-LICENSE.txt
+
+  LVGL (thirdparty/lvgl, git submodule)
+    Copyright (c) 2025 LVGL Kft, MIT — licenses/LVGL-MIT-LICENCE.txt
+    The upstream tree also bundles optional libraries under MPL-2.0,
+    Apache-2.0, Zlib, BSD and a proprietary Vivante licence. None of them are
+    compiled into this project; see debian/copyright for the full breakdown.
+
+  Trademarks
+    The MIT licence grants copyright permissions only and conveys no trademark
+    rights. The GOcontroll name, wordmark and logos in assets/ and
+    splash/assets/ remain GOcontroll trademarks. You may redistribute and
+    modify those files under the MIT terms above, but not in a way that
+    implies endorsement by, or origin from, GOcontroll.
+
+The authoritative, machine-readable breakdown is debian/copyright.

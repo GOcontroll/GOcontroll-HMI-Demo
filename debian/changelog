@@ -1,3 +1,24 @@
+gocontroll-hmi-demo (1.0.3) unstable; urgency=medium
+
+  * Declare the font licences. The binary embeds glyph bitmaps rendered from
+    Montserrat (SIL OFL 1.1) and, in lv_font_montserrat_14_ext.c, from Font
+    Awesome Free 5 (CC BY 4.0 icons, OFL 1.1 fonts). debian/copyright declared
+    the whole package Expat and named neither, while both licences require the
+    notice to travel with the distribution. Add stanzas for them, ship the
+    verbatim texts in /usr/share/doc/gocontroll-hmi-demo/licenses/, and put an
+    attribution header on the generated font file — lv_font_conv does not emit
+    one, so it has to be maintained by hand across regenerations.
+  * Stop declaring thirdparty/lvgl/* as Expat wholesale. LVGL itself is, but
+    the upstream tree bundles frogfs (MPL-2.0), vg_lite_driver (proprietary
+    Vivante), gif (Apache-2.0), lodepng and nanovg (Zlib), lz4/TLSF/barcode
+    (BSD) and tjpgd. None are compiled into this package, which is now stated
+    explicitly rather than papered over.
+  * Give gocontroll_demo and assets/ their own stanzas: the Simulink binary was
+    silently covered by Files: *, and the Expat licence over the logos conveys
+    no trademark rights, which is now spelled out.
+
+ -- GOcontroll <info@gocontroll.com>  Tue, 11 Aug 2026 16:05:00 +0200
+
 gocontroll-hmi-demo (1.0.2) unstable; urgency=medium
 
   * Read the serial number from where it actually lives. identify.c read

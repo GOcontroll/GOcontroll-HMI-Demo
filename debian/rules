@@ -28,6 +28,13 @@ override_dh_auto_install:
 	install -Dm644 assets/hmi1_back.png           debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/hmi1_back.png
 	install -Dm644 splash/assets/GOcontroll_splash.png \
 	    debian/gocontroll-hmi-demo/usr/share/gocontroll-hmi-demo/GOcontroll_splash.png
+	# Third-party licence texts. The binary embeds Montserrat and Font Awesome
+	# glyph bitmaps; SIL OFL 1.1 and CC BY 4.0 both require the notice to travel
+	# with the distribution, so ship the verbatim texts next to debian/copyright.
+	for f in licenses/*.txt; do \
+	    install -Dm644 "$$f" \
+	        debian/gocontroll-hmi-demo/usr/share/doc/gocontroll-hmi-demo/licenses/"$$(basename $$f)"; \
+	done
 	# signals.json and parameters.json are generated per Simulink build from the
 	# .a2l and are gitignored, so a fresh clone does not have them and an
 	# unconditional install fails the build. Ship them when they are there;
@@ -53,6 +60,13 @@ override_dh_auto_install:
 	    debian/gocontroll-hmi-demo/usr/bin/gocontroll-hmi-demo-nodered-flow
 	install -Dm644 debian/gocontroll-hmi-display-recover.service \
 	    debian/gocontroll-hmi-demo/usr/lib/systemd/system/gocontroll-hmi-display-recover.service
+
+override_dh_compress:
+	# dh_compress gzips anything over 4k under /usr/share/doc. Two of the three
+	# licence texts are over that, and debian/copyright cites them by exact
+	# path, so leave the directory uncompressed: a licence you have to gunzip to
+	# read is a worse artefact than a few kB saved.
+	dh_compress -Xlicenses/
 
 override_dh_installsystemd:
 	dh_installsystemd --name=gocontroll-hmi-demo   gocontroll-hmi-demo.service

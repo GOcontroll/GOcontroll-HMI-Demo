@@ -365,6 +365,14 @@ Text uses Montserrat 14/24/36 from LVGL, plus
 that includes U+00A9 for the footer's copyright sign, kept outside the LVGL
 submodule so the submodule stays clean.
 
+The fonts are not MIT. Montserrat is SIL OFL 1.1 and the extended font also
+embeds Font Awesome Free glyphs (CC BY 4.0 icons, OFL 1.1 font files). Both
+licences require the notice to travel with anything you distribute, so the
+attribution block at the top of `lv_font_montserrat_14_ext.c` is not optional
+decoration — **if you regenerate that file with `lv_font_conv`, re-add it**, as
+the generator does not emit attribution itself. See
+[Third-party licences](#third-party-licences).
+
 ### Regenerating the module pin tables
 
 `scripts/gen_module_pins.py` rebuilds `src/module_pins.{c,h}` from the
@@ -385,5 +393,38 @@ table and is maintained by hand from the same architecture document.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). LVGL is vendored as a submodule under
-`thirdparty/lvgl` and is MIT-licensed as well.
+MIT — see [LICENSE](LICENSE) — for the code GOcontroll wrote. LVGL is vendored
+as a submodule under `thirdparty/lvgl` and is MIT-licensed as well.
+
+### Third-party licences
+
+The MIT grant does not cover everything in the shipped binary. The
+authoritative, machine-readable breakdown is
+[`debian/copyright`](debian/copyright); verbatim licence texts live in
+[`licenses/`](licenses/) and are installed to
+`/usr/share/doc/gocontroll-hmi-demo/licenses/`.
+
+| Component | Where | Licence |
+|---|---|---|
+| GOcontroll source, packaging | `src/`, `debian/`, `splash/` | MIT (Expat) |
+| LVGL core, DRM/evdev drivers, SW renderer | `thirdparty/lvgl` | MIT |
+| Montserrat glyph bitmaps | `lv_font_montserrat_14/24/36`, `src/fonts/lv_font_montserrat_14_ext.c` | SIL OFL 1.1 |
+| Font Awesome Free 5 glyph bitmaps | `src/fonts/lv_font_montserrat_14_ext.c` | CC BY 4.0 (icons), OFL 1.1 (fonts) |
+| `gocontroll_demo` Simulink binary | repo root, installed to `/usr/bin` | MIT, GOcontroll's own model output |
+| Logos and product photography | `assets/`, `splash/assets/` | MIT, but no trademark grant |
+
+Two things are deliberately *not* obligations here:
+
+* **The optional libraries LVGL bundles** — frogfs (MPL-2.0), `vg_lite_driver`
+  (proprietary Vivante), gif (Apache-2.0), lodepng and nanovg (Zlib), lz4 and
+  TLSF (BSD), barcode (BSD), tjpgd, thorvg, qrcode, tiny_ttf — are **not
+  compiled in**. Every corresponding `LV_USE_*` is off or undefined in
+  `lv_conf.h`, and `debian/rules` passes
+  `-DCONFIG_LV_USE_THORVG_INTERNAL=OFF`. They ship in a checked-out working
+  tree but never reach the `.deb`. Turning any of them on in `lv_conf.h` adds
+  its licence to the package, and `debian/copyright` then needs a stanza for
+  it — the MPL-2.0 and Vivante ones especially.
+* **System libraries** — the binary dynamically links `libc`, `libm`, `libdrm`,
+  `libpng16`, `libcjson` and `libz`, all permissive or dynamically-linked LGPL,
+  all supplied by Debian. Nothing is statically bundled, so there is no
+  redistribution obligation on our side. Nothing GPL is linked.
