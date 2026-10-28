@@ -6,8 +6,9 @@ DefaultDependencies=no
 # asset sits on the root fs, which the kernel already mounted (/usr is not a
 # separate mount). Ordering behind them cost ~0.7s of black screen on an HMI1 —
 # the framebuffer is up at 0.72s but tmpfiles-setup only finished at 2.0s.
-# The actual gate is gocontroll-hmi-display-recover: it orders itself Before=
-# us and notifies READY only once card1 exists.
+# The actual gate is /dev/dri/card1 itself: the binary waits for it (up to
+# 15 s), because the kernel can take seconds to bring the display chain up
+# when i2c-3 is busy after a short power interruption.
 After=systemd-udevd.service
 Before=basic.target
 Conflicts=shutdown.target

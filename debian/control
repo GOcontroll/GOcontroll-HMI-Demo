@@ -27,9 +27,6 @@ Replaces: go-gtk-demo
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- i2c-tools,
-Recommends:
- gpiod,
 Description: A minimal HMI demo for the Moduline HMI1 (LVGL on KMS)
  Shows a GOcontroll-branded dashboard with live K15/K30 voltages from an
  accompanying Simulink binary, product and hardware information, process

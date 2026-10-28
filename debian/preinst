@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+upgrade)
+	# 1.0.5 drops gocontroll-hmi-display-recover: the kernel now handles a busy
+	# i2c-3 at probe time and a backlight power-on reset at runtime itself.
+	# Its unit file disappears with this upgrade, but the enable symlink in
+	# sysinit.target.wants and debhelper's enable state would stay behind, so
+	# stop it while the unit is still there and purge that state.
+	if dpkg --compare-versions "$2" lt 1.0.5; then
+		if [ -d /run/systemd/system ]; then
+			deb-systemd-invoke stop gocontroll-hmi-display-recover.service >/dev/null 2>&1 || true
+		fi
+		if command -v deb-systemd-helper >/dev/null 2>&1; then
+			deb-systemd-helper purge gocontroll-hmi-display-recover.service >/dev/null 2>&1 || true
+		fi
+	fi
+	;;
+esac
+
+#DEBHELPER#
+
+exit 0

@@ -64,8 +64,6 @@ src/
 splash/               standalone boot-splash binary (DRM + libpng, no LVGL)
 scripts/
   gen_module_pins.py  regenerates src/module_pins.{c,h}
-  gocontroll-hmi-display-recover  rebinds the display i2c slaves and repairs the
-                      backlight after a stuck-SCL boot or a supply dip
   gocontroll-hmi-demo-nodered-flow  merges the Node-RED tab below into an
                       existing Node-RED installation
 nodered/
@@ -133,17 +131,29 @@ The package `gocontroll-hmi-demo` installs:
 * `/usr/bin/gocontroll-hmi-demo` — the dashboard binary
 * `/usr/bin/gocontroll-hmi-splash` — the boot splash
 * `/usr/bin/gocontroll_demo` — the Simulink companion process
-* `/usr/bin/gocontroll-hmi-display-recover` — display/backlight recovery helper
 * `/usr/bin/gocontroll-hmi-demo-nodered-flow` — Node-RED tab installer
 * `/usr/share/gocontroll-hmi-demo/` — `GOcontroll.png`, `GOcontroll_header.png`,
   `GOcontroll_splash.png`, `hmi1_3d.png`, `hmi1_back.png`, `hmi1_connectors.png`,
   `signals.json`, `parameters.json`, `nodered/hmi1-demo-flow.json`
-* four systemd units in `/usr/lib/systemd/system/`:
-  `gocontroll-hmi-demo.service`, `gocontroll_demo.service`,
-  `gocontroll-hmi-splash.service` and `gocontroll-hmi-display-recover.service`
+* three systemd units in `/usr/lib/systemd/system/`:
+  `gocontroll-hmi-demo.service`, `gocontroll_demo.service` and
+  `gocontroll-hmi-splash.service`
 
-`dh_installsystemd` enables and starts all four units at install time, so on a
+`dh_installsystemd` enables and starts all three units at install time, so on a
 normal device the splash and dashboard come up without further action.
+
+Display and backlight recovery is the kernel's job from 1.0.5 on: the HMI1
+kernel waits out a busy i2c-3 at probe time and reprograms the MAX25014 after a
+power-on reset (`max25014.watchdog_ms`). The `gocontroll-hmi-display-recover`
+helper of 1.0.1–1.0.4 is gone; upgrading stops it and removes its enable link.
+It needs a kernel built from `GOcontroll/linux@gocontroll-6.12.87` at
+`76d8f6835f3d` or later. On an older kernel, stay on 1.0.4. The splash and the
+dashboard both wait up to 15 s for `/dev/dri/card1`, which can appear late
+while the kernel waits for the bus.
+
+The kernel keeps the backlight at 0 until userspace turns it on. The splash
+fades it in with the logo (50%, or `GOCONTROLL_SPLASH_BRIGHTNESS` in percent).
+If `systemd-backlight` restores a saved value first, the splash leaves it as is.
 
 ### 3. Control the services
 
@@ -164,8 +174,8 @@ Notes on the unit wiring, all visible in `debian/*.service`:
   boot; otherwise start it explicitly.
 * It stops the splash synchronously via `ExecStartPre` before grabbing DRM
   master — a unit-level `Conflicts=` loses that race at boot.
-* `gocontroll_demo.service` (the Simulink backend), the splash and the display
-  recovery are all `WantedBy=sysinit.target`, i.e. very early in boot.
+* `gocontroll_demo.service` (the Simulink backend) and the splash are both
+  `WantedBy=sysinit.target`, i.e. very early in boot.
 * Without `gocontroll_demo` running, the demo still starts; K15/K30 simply show
   `-`. The pid is re-resolved whenever IPC fails, so a backend that starts or
   restarts later is picked up within a couple of seconds without restarting the

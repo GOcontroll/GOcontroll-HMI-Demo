@@ -1,3 +1,22 @@
+gocontroll-hmi-demo (1.0.5) unstable; urgency=medium
+
+  * Drop gocontroll-hmi-display-recover. The HMI1 kernel (GOcontroll/linux
+    gocontroll-6.12.87 at 76d8f6835f3d or later) now waits out a busy i2c-3
+    when it probes the MAX25014 and the PCF85063, and reprograms the backlight
+    chip itself after a power-on reset while the system keeps running. The
+    userspace helper was a workaround for exactly those cases. preinst stops
+    the old service on upgrade and purges its enable state, so no dangling
+    sysinit.target.wants link is left behind. Requires the new kernel; stay on
+    1.0.4 with an older one.
+  * Drop the i2c-tools dependency and the gpiod recommendation; only the
+    helper used them.
+  * Wait up to 15 s for /dev/dri/card1 in both the splash and the dashboard.
+    The helper used to gate the splash on it; without that, and with the
+    kernel now taking up to ~10 s to bring the display chain up on a busy bus,
+    opening the device once and giving up left a black screen.
+
+ -- GOcontroll <info@gocontroll.com>  Wed, 28 Oct 2026 20:00:00 +0100
+
 gocontroll-hmi-demo (1.0.4) unstable; urgency=medium
 
   * Fade the backlight in with the splash logo. The HMI1 kernel now leaves

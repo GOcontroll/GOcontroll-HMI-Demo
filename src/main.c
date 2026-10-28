@@ -23,8 +23,24 @@
 #define TOUCH_DEVICE       "/dev/input/event0"
 #define ASSET_DIR          "/usr/share/gocontroll-hmi-demo"
 #define BACKLIGHT_SYSFS    "/sys/class/backlight/max25014/brightness"
+/* The kernel can take up to ~10 s to bring the display chain up when i2c-3 is
+ * busy after a short power interruption (the backlight driver waits it out
+ * instead of failing). Give it a margin on top. */
+#define DRM_WAIT_MS        15000
 
 static volatile sig_atomic_t g_stop = 0;
+
+/* card1 only exists once the backlight, panel and bridge have all probed. On
+ * a slow boot it can appear after this service starts; opening it once and
+ * giving up would leave a black screen for good. */
+static int wait_for_device(const char *path, int timeout_ms)
+{
+    for (int waited = 0; access(path, F_OK) != 0; waited += 100) {
+        if (waited >= timeout_ms || g_stop) return -1;
+        usleep(100 * 1000);
+    }
+    return 0;
+}
 
 static void on_signal(int sig)
 {
@@ -67,6 +83,10 @@ int main(int argc, char **argv)
     lv_tick_set_cb(tick_get_ms_cb);
 
     /* --- DRM display --------------------------------------------------- */
+    if (wait_for_device(DRM_DEVICE, DRM_WAIT_MS) != 0) {
+        fprintf(stderr, "%s did not appear within %d ms\n", DRM_DEVICE, DRM_WAIT_MS);
+        return 1;
+    }
     drm_display_t *drm = drm_display_open(DRM_DEVICE);
     if (!drm) {
         fprintf(stderr, "drm_display_open(%s) failed\n", DRM_DEVICE);

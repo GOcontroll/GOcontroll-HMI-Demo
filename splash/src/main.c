@@ -21,8 +21,22 @@
 #define FRAME_US         16666      /* ~60 Hz — animation runs ~800 ms */
 #define SCALE_START      0.30f
 #define SCALE_END        1.00f
+/* The kernel can take up to ~10 s to bring the display chain up when i2c-3 is
+ * busy after a short power interruption; card1 only exists after that. */
+#define DRM_WAIT_MS      15000
 
 static volatile sig_atomic_t g_stop = 0;
+
+/* We start very early in sysinit and nothing orders us behind the DRM device,
+ * so wait for it here rather than fail and show no splash at all. */
+static int wait_for_device(const char *path, int timeout_ms)
+{
+    for (int waited = 0; access(path, F_OK) != 0; waited += 100) {
+        if (waited >= timeout_ms) return -1;
+        usleep(100 * 1000);
+    }
+    return 0;
+}
 
 static void on_signal(int sig)
 {
@@ -154,6 +168,12 @@ int main(int argc, char **argv)
     splash_image_t *logo = splash_png_load(png);
     if (!logo) {
         fprintf(stderr, "splash: cannot load %s: %s\n", png, strerror(errno));
+        return 1;
+    }
+
+    if (wait_for_device(device, DRM_WAIT_MS) != 0) {
+        fprintf(stderr, "splash: %s did not appear within %d ms\n", device, DRM_WAIT_MS);
+        splash_png_free(logo);
         return 1;
     }
 
