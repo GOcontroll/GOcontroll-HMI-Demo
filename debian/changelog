@@ -14,6 +14,9 @@ gocontroll-hmi-demo (1.0.5) unstable; urgency=medium
     The helper used to gate the splash on it; without that, and with the
     kernel now taking up to ~10 s to bring the display chain up on a busy bus,
     opening the device once and giving up left a black screen.
+  * Do not start the splash from postinst. It only makes sense at boot; on an
+    install or upgrade the dashboard holds DRM master, so the splash failed
+    at once and left a failed unit behind. It stays enabled for the next boot.
 
  -- GOcontroll <info@gocontroll.com>  Wed, 28 Oct 2026 20:00:00 +0100
 

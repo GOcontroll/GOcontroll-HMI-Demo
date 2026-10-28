@@ -67,4 +67,6 @@ override_dh_compress:
 override_dh_installsystemd:
 	dh_installsystemd --name=gocontroll-hmi-demo   gocontroll-hmi-demo.service
 	dh_installsystemd --name=gocontroll_demo       gocontroll_demo.service
-	dh_installsystemd --name=gocontroll-hmi-splash gocontroll-hmi-splash.service
+	# The splash only makes sense at boot. Starting it from postinst while the
+	# dashboard holds DRM master just fails and leaves a failed unit behind.
+	dh_installsystemd --name=gocontroll-hmi-splash --no-start gocontroll-hmi-splash.service

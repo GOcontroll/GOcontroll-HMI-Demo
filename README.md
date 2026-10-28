@@ -139,8 +139,9 @@ The package `gocontroll-hmi-demo` installs:
   `gocontroll-hmi-demo.service`, `gocontroll_demo.service` and
   `gocontroll-hmi-splash.service`
 
-`dh_installsystemd` enables and starts all three units at install time, so on a
-normal device the splash and dashboard come up without further action.
+`dh_installsystemd` enables all three units at install time and starts the
+dashboard and the Simulink backend; the splash is only started at boot, so it
+does not fight a running dashboard for DRM master.
 
 Display and backlight recovery is the kernel's job from 1.0.5 on: the HMI1
 kernel waits out a busy i2c-3 at probe time and reprograms the MAX25014 after a
