@@ -114,15 +114,6 @@ static float ms_since(const struct timespec *t0)
            (float)(now.tv_nsec - t0->tv_nsec) / 1e6f;
 }
 
-/* SIGTERM/SIGINT are blocked and collected by sigwait() later; peek at them
- * so a stop request does not have to wait for the ramp to finish. */
-static int stop_pending(void)
-{
-    sigset_t pending;
-    sigpending(&pending);
-    return sigismember(&pending, SIGTERM) || sigismember(&pending, SIGINT);
-}
-
 static void wait_signal(void)
 {
     /* Hold the last rendered frame indefinitely — the display keeps showing
@@ -250,9 +241,12 @@ int main(int argc, char **argv)
     render_frame(splash_drm_back_buffer(drm), w, h, stride, logo, 1.0f, 1.0f);
     splash_drm_commit(drm);
 
-    /* The ramp outlasts the logo animation; finish it on the held frame. */
+    /* The ramp outlasts the logo animation; finish it on the held frame.
+     * Always to the end, also when the HMI already asked us to stop: cutting
+     * it short jumps the backlight to full, the hard edge the ramp exists to
+     * avoid. That delays the HMI by at most BACKLIGHT_RAMP_MS. */
     float elapsed;
-    while ((elapsed = ms_since(&start)) < BACKLIGHT_RAMP_MS && !stop_pending()) {
+    while ((elapsed = ms_since(&start)) < BACKLIGHT_RAMP_MS) {
         splash_backlight_set(elapsed / BACKLIGHT_RAMP_MS);
         usleep(FRAME_US);
     }
