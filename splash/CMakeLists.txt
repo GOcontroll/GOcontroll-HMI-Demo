@@ -8,6 +8,7 @@
 
 add_executable(gocontroll-hmi-splash
     src/main.c
+    src/splash_backlight.c
     src/splash_drm.c
     src/splash_png.c
 )

@@ -1,3 +1,14 @@
+gocontroll-hmi-demo (1.0.4) unstable; urgency=medium
+
+  * Fade the backlight in with the splash logo. The HMI1 kernel now leaves
+    the MAX25014 at brightness 0 until userspace has a picture to show, so
+    the panel no longer lights up on an empty frame at boot. The splash
+    raises it alongside the logo's own fade, to 50% of max_brightness or
+    GOCONTROLL_SPLASH_BRIGHTNESS (percent), and leaves it alone when
+    something earlier in the boot already turned it on.
+
+ -- GOcontroll <info@gocontroll.com>  Wed, 28 Oct 2026 19:30:00 +0100
+
 gocontroll-hmi-demo (1.0.3) unstable; urgency=medium
 
   * Declare the font licences. The binary embeds glyph bitmaps rendered from

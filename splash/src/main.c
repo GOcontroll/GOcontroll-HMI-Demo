@@ -10,6 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "splash_backlight.h"
 #include "splash_drm.h"
 #include "splash_png.h"
 
@@ -167,6 +168,10 @@ int main(int argc, char **argv)
     uint32_t h      = splash_drm_height(drm);
     uint32_t stride = splash_drm_stride(drm);
 
+    /* Opened only now: the panel must have a frame to show before it lights
+     * up, and the first commit happens in the loop below. */
+    splash_backlight_open();
+
     struct timespec start;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -183,6 +188,9 @@ int main(int argc, char **argv)
 
         render_frame(splash_drm_back_buffer(drm), w, h, stride, logo, scale, alpha);
         splash_drm_commit(drm);
+        /* Backlight follows the logo's own fade, so the panel never shows
+         * an empty lit frame. */
+        splash_backlight_set(eased);
 
         /* Pace to ~60 Hz against a monotonic baseline so rendering cost
          * doesn't accumulate into a slow animation. */
@@ -200,6 +208,10 @@ int main(int argc, char **argv)
      * even if the animation loop exited early. */
     render_frame(splash_drm_back_buffer(drm), w, h, stride, logo, 1.0f, 1.0f);
     splash_drm_commit(drm);
+    /* Left on when we exit: the HMI takes over from a black frame and
+     * fades its own picture in under a lit panel. */
+    splash_backlight_set(1.0f);
+    splash_backlight_close();
 
     wait_signal();
     play_fade_out(drm, logo, w, h, stride);
