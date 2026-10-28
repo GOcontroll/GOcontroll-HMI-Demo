@@ -12,8 +12,10 @@
  * already turned it on — in both cases the splash leaves it alone. */
 bool splash_backlight_open(void);
 
-/* Set the backlight to `level` (0..1) of the target brightness. No-op when
- * splash_backlight_open() returned false. */
+/* Set the backlight for ramp progress `level` (0..1). The progress goes
+ * through a perceptual curve, so a linear 0..1 looks like an even fade from
+ * dark to the target brightness. No-op when splash_backlight_open() returned
+ * false. */
 void splash_backlight_set(float level);
 
 void splash_backlight_close(void);

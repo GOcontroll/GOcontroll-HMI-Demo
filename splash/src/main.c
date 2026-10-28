@@ -24,6 +24,10 @@
 /* The kernel can take up to ~10 s to bring the display chain up when i2c-3 is
  * busy after a short power interruption; card1 only exists after that. */
 #define DRM_WAIT_MS      15000
+/* The backlight ramps on its own clock, longer than the logo animation: tied
+ * to the logo's ease-out it reached most of its level in ~0.3 s, which read
+ * as a hard switch-on. splash_backlight_set() applies the perceptual curve. */
+#define BACKLIGHT_RAMP_MS 1200
 
 static volatile sig_atomic_t g_stop = 0;
 
@@ -100,6 +104,23 @@ static void render_frame(uint8_t *dst, uint32_t dst_w, uint32_t dst_h,
             dp[3] = 0xFF;
         }
     }
+}
+
+static float ms_since(const struct timespec *t0)
+{
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (float)(now.tv_sec - t0->tv_sec) * 1000.0f +
+           (float)(now.tv_nsec - t0->tv_nsec) / 1e6f;
+}
+
+/* SIGTERM/SIGINT are blocked and collected by sigwait() later; peek at them
+ * so a stop request does not have to wait for the ramp to finish. */
+static int stop_pending(void)
+{
+    sigset_t pending;
+    sigpending(&pending);
+    return sigismember(&pending, SIGTERM) || sigismember(&pending, SIGINT);
 }
 
 static void wait_signal(void)
@@ -208,9 +229,9 @@ int main(int argc, char **argv)
 
         render_frame(splash_drm_back_buffer(drm), w, h, stride, logo, scale, alpha);
         splash_drm_commit(drm);
-        /* Backlight follows the logo's own fade, so the panel never shows
-         * an empty lit frame. */
-        splash_backlight_set(eased);
+        /* The backlight starts with the first committed frame, so the panel
+         * never shows an empty lit frame. */
+        splash_backlight_set(ms_since(&start) / BACKLIGHT_RAMP_MS);
 
         /* Pace to ~60 Hz against a monotonic baseline so rendering cost
          * doesn't accumulate into a slow animation. */
@@ -228,6 +249,13 @@ int main(int argc, char **argv)
      * even if the animation loop exited early. */
     render_frame(splash_drm_back_buffer(drm), w, h, stride, logo, 1.0f, 1.0f);
     splash_drm_commit(drm);
+
+    /* The ramp outlasts the logo animation; finish it on the held frame. */
+    float elapsed;
+    while ((elapsed = ms_since(&start)) < BACKLIGHT_RAMP_MS && !stop_pending()) {
+        splash_backlight_set(elapsed / BACKLIGHT_RAMP_MS);
+        usleep(FRAME_US);
+    }
     /* Left on when we exit: the HMI takes over from a black frame and
      * fades its own picture in under a lit panel. */
     splash_backlight_set(1.0f);

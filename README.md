@@ -153,7 +153,8 @@ dashboard both wait up to 15 s for `/dev/dri/card1`, which can appear late
 while the kernel waits for the bus.
 
 The kernel keeps the backlight at 0 until userspace turns it on. The splash
-fades it in with the logo (50%, or `GOCONTROLL_SPLASH_BRIGHTNESS` in percent).
+fades it in from its first frame, on a 1.2 s perceptual ramp, to 50% (or
+`GOCONTROLL_SPLASH_BRIGHTNESS` in percent).
 If `systemd-backlight` restores a saved value first, the splash leaves it as is.
 
 ### 3. Control the services

@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,10 @@
  * with GOCONTROLL_SPLASH_BRIGHTNESS so an integrator can match their own HMI
  * without rebuilding. */
 #define DEFAULT_TARGET_PCT  50
+/* Perceived brightness is far from linear in PWM duty: the step from 0 to a
+ * few percent looks like switching on. Raising progress to this power keeps
+ * the start of the ramp soft and makes the whole ramp look even. */
+#define PERCEPTUAL_GAMMA    2.2f
 
 static int g_fd = -1;
 static long g_target;
@@ -85,7 +90,7 @@ void splash_backlight_set(float level)
     if (level < 0.0f) level = 0.0f;
     if (level > 1.0f) level = 1.0f;
 
-    long v = (long)(g_target * level + 0.5f);
+    long v = (long)(g_target * powf(level, PERCEPTUAL_GAMMA) + 0.5f);
     if (v == g_last) return;        /* every write is an I2C transfer */
 
     char buf[24];
