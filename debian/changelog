@@ -16,7 +16,9 @@ gocontroll-hmi-demo (1.0.5) unstable; urgency=medium
     opening the device once and giving up left a black screen.
   * Fade the backlight in on its own perceptual ramp (1.2 s, gamma 2.2)
     instead of the logo's ease-out. Tied to the logo it reached 39 of 50 in
-    about 0.3 s, which looked like a hard switch-on.
+    about 0.3 s, which looked like a hard switch-on. The ramp always runs to
+    the end, also when the dashboard stops the splash early; cutting it short
+    jumped straight to full brightness.
   * Do not start the splash from postinst. It only makes sense at boot; on an
     install or upgrade the dashboard holds DRM master, so the splash failed
     at once and left a failed unit behind. It stays enabled for the next boot.
