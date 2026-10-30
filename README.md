@@ -81,6 +81,7 @@ Native build on the device:
 ```sh
 git clone --recurse-submodules https://github.com/GOcontroll/GOcontroll-HMI-Demo.git
 cd GOcontroll-HMI-Demo
+apt update                             # a fresh image ships without package lists
 apt install -y cmake pkg-config libdrm-dev libgbm-dev libegl-dev libgles-dev \
     libevdev-dev libcjson-dev libpng-dev libfreetype-dev build-essential
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -106,6 +107,9 @@ from a TTY that no compositor or splash is holding.
 
 ### 1. Build the Debian package
 
+Run this from the root of the repository, with the packages from
+[Building from source](#building-from-source) installed as well:
+
 ```sh
 apt install -y debhelper dpkg-dev
 dpkg-buildpackage -us -uc -b
@@ -123,8 +127,12 @@ The result is `../gocontroll-hmi-demo_<version>_<arch>.deb`.
 ### 2. Install it on the device
 
 ```sh
-apt install ./gocontroll-hmi-demo_*.deb
+apt install ../gocontroll-hmi-demo_*.deb
+systemctl set-default graphical.target    # stock images stop at multi-user.target
 ```
+
+Without the `set-default`, the dashboard does not start at boot and the splash
+stays on screen.
 
 The package `gocontroll-hmi-demo` installs:
 

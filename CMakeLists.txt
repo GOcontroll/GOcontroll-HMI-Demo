@@ -55,6 +55,13 @@ pkg_check_modules(PNG    REQUIRED libpng)
 # <png.h>. Add those include dirs globally so the LVGL subtree can compile.
 include_directories(SYSTEM ${LIBDRM_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS} ${EVDEV_INCLUDE_DIRS})
 
+# LVGL defaults these to ON, but its examples and demos need widgets lv_conf.h
+# leaves out, so they do not compile here. FORCE, or a build tree configured
+# before this line keeps the ON that LVGL's option() cached.
+set(CONFIG_LV_BUILD_EXAMPLES OFF CACHE BOOL "Build LVGL examples" FORCE)
+set(CONFIG_LV_BUILD_DEMOS OFF CACHE BOOL "Build LVGL demos" FORCE)
+set(CONFIG_LV_USE_THORVG_INTERNAL OFF CACHE BOOL "Use LVGL's internal ThorVG" FORCE)
+
 add_subdirectory(thirdparty/lvgl)
 
 add_executable(gocontroll-hmi-demo
